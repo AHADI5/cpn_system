@@ -1,5 +1,7 @@
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
+import Logo from "../assets/logo/logo_v4.png";
+import colors from "../utils/colors";
 import {
     Card,
     CardContent,
@@ -8,61 +10,66 @@ import {
     Typography,
     CircularProgress
 } from "@mui/material";
+
 export default function LoginPage() {
     const { login } = useAuth();
     const [loading, setLoading] = useState(false);
-    const handleSubmit = (event) => {
 
+    const handleSubmit = (event) => {
         event.preventDefault();
         setLoading(true);
         const username = event.target.username.value;
         const password = event.target.password.value;
-        const token = btoa(`${username}:${password}`); // Simulating token generation, replace with actual login logic
-        // Call the login function from AuthContext
+        const token = btoa(`${username}:${password}`);
         login(token);
         setLoading(false);
-
     };
+
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-            <div className="w-[90%] max-w-sm">
-                <Card className="w-1/2 shadow-md rounded-lg">
-                    <CardContent className="space-y-6">
-                        <Typography variant="h4" className="text-center font-semibold text-gray-800">
-                            Login
+        <div className="flex items-center justify-center">
+            <Card className="shadow-md rounded-lg w-full max-w-sm">
+                <CardContent className="space-y-6">
+                    <Typography variant="h4" className="text-center font-semibold text-gray-800" sx={{ mb: 6 }}>
+                        <img src={Logo} alt="Logo" className="w-24 mx-auto mb-4" />
+                    </Typography>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <TextField
+                            name="username"
+                            label="Username"
+                            variant="outlined"
+                            fullWidth
+                            required
+                            sx={{ mb: 4 }}
+                        />
+                        <TextField
+                            name="password"
+                            label="Password"
+                            type="password"
+                            variant="outlined"
+                            fullWidth
+                            required
+                        />
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            color="primary"
+                            fullWidth
+                            disabled={loading}
+                            sx={{
+                                mt: 6,
+                                backgroundColor: colors.primary,
+                                '&:hover': { backgroundColor: colors.primary }
+                            }
+                            }
+                        >
+                            {loading ? <CircularProgress size={24} /> : "Login"}
+                        </Button>
+                        <Typography variant="body2" className="text-center text-gray-600" sx={{ mt: 6 }}>
+                            Don't have an account? <a href="/register" className="-blue-500">Register</a>
                         </Typography>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <TextField
-                                name="username"
-                                label="Username"
-                                variant="outlined"
-                                fullWidth
-                                required
-                            />
-                            <TextField
-                                name="password"
-                                label="Password"
-                                type="password"
-                                variant="outlined"
-                                fullWidth
-                                required
-                            />
-                            <Button
-                                type="submit"
-                                variant="contained"
-                                color="primary"
-                                fullWidth
-                                disabled={loading}
-                            >
-                                {loading ? <CircularProgress size={24} /> : "Login"}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-
-            </div>
-
+                    </form>
+                </CardContent>
+            </Card>
         </div>
-
     );
 }

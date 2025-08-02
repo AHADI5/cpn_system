@@ -1,25 +1,23 @@
-
+import LoginPage from './pages/loginPage';
 import './App.css'
-import { AuthProvider } from './context/AuthContext'
-import LoginPage from './pages/loginPage'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-
+import { AuthProvider } from './context/AuthContext';
 function App() {
   return (
     <AuthProvider>
       <Router>
-          <div>
-            <main>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                {/* <Route path="/unauthorized" element={<Unauthorized />} /> */}
-              </Routes>
-            </main>
-          </div>
+        <div className="flex">
+          <main className="p-4 w-full">
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              {/* <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/users" element={<ProtectedRoute><UserList /></ProtectedRoute>} /> */}
+            </Routes>
+          </main>
+        </div>
       </Router>
     </AuthProvider>
- 
-  )
+  );
 }
 
-export default App
+export default App;
