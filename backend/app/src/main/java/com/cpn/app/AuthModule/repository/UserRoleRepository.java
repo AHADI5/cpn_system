@@ -1,0 +1,11 @@
+package com.cpn.app.AuthModule.repository;
+
+
+import com.cpn.app.AuthModule.model.UserRole;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
+    Optional<UserRole> findByRoleName(String roleName);
+}
