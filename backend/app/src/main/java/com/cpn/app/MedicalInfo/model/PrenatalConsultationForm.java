@@ -1,14 +1,15 @@
-package com.cpn.app.MedicalInfo;
+package com.cpn.app.MedicalInfo.model;
 
 import com.cpn.app.PatientManagement.models.Patient;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 @Entity
 @Builder
@@ -17,13 +18,17 @@ import lombok.NoArgsConstructor;
 @Data
 public class PrenatalConsultationForm {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // add generation strategy
     private Long cpnID;
+
     @ManyToOne
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
-    @ManyToOne
-    @JoinColumn(name = "grossesse_id")
-    private Grossesse grossesse;
+    @Temporal(TemporalType.DATE) // Good practice
+    private Date giveBirthExpectedDate;
 
+    @OneToMany(mappedBy = "prenatalConsultationForm", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Consultation> consultations = new ArrayList<>();
 }
+

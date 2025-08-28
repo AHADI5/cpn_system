@@ -8,46 +8,25 @@
       ]
     },
     {
-      "userName": "utilisateur01",
+      "userName": "patiente",
       "password": "123",
       "isEnabled": true ,
       "userRoles": [
-        { "roleName": "PORTAL_USER", "description": "Portal User" }
+        { "roleName": "PATIENT", "description": "Patient User" }
       ]
     },
     {
-      "userName": "accuse01",
+      "userName": "doctor",
       "password": "123",
       "userRoles": [
-        { "roleName": "ACCUSE", "description": "Personne accusée" }
+        { "roleName": "DOCTOR", "description": "Doctor user" }
       ]
     },
     {
-      "userName": "juge01",
+      "userName": "receptionist",
       "password": "123",
       "userRoles": [
-        { "roleName": "JUGE", "description": "Juge en charge du procès" }
-      ]
-    },
-    {
-      "userName": "greffier01",
-      "password": "123",
-      "userRoles": [
-        { "roleName": "GREFFIER", "description": "Greffier du tribunal" }
-      ]
-    },
-    {
-      "userName": "accusant01",
-      "password": "123",
-      "userRoles": [
-        { "roleName": "ACCUSANT", "description": "Personne qui accuse" }
-      ]
-    },
-    {
-      "userName": "temoin01",
-      "password": "123",
-      "userRoles": [
-        { "roleName": "TEMOIN", "description": "Témoin du procès" }
+        { "roleName": "RECEPTIONIST", "description": "Receptionist User" }
       ]
     }
   ]

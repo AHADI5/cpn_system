@@ -1,4 +1,4 @@
 package com.cpn.app.MedicalInfo.dtos.requests;
 
-public class GrossesseRequest {
+public class PregnancyRequest {
 }

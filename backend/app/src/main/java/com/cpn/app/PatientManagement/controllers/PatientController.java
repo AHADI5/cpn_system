@@ -32,7 +32,7 @@ public record PatientController(
         return ResponseEntity.status(HttpStatus.OK).body(patientResponses);
     }
 
-    @GetMapping("{/patientID}")
+    @GetMapping("/{patientID}")
     public ResponseEntity<PatientResponse> getPatient(@PathVariable("patientID") long patientID) {
         Patient patient = patientService.findById(patientID) ;
         return ResponseEntity.status(HttpStatus.OK).body(PatientResponse.fromEntity(patient));

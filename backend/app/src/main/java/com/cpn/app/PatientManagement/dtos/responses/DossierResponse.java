@@ -5,7 +5,7 @@ import com.cpn.app.PatientManagement.models.Dossier;
 public record DossierResponse(
         long dossierID ,
         String uniqueID ,
-        long patientID
+        PatientResponse patient
 ) {
     public static DossierResponse fromEntity(Dossier dossier) {
         if (dossier == null) {
@@ -14,7 +14,7 @@ public record DossierResponse(
         return new DossierResponse(
                 dossier.getDossierId(),
                 dossier.getUniqueID(),
-                dossier.getPatient().getPatientId()
+                PatientResponse.fromEntity(dossier.getPatient())
         );
     }
 }

@@ -1,4 +1,11 @@
 package com.cpn.app.MedicalInfo.dtos.requests;
 
-public class PrenatalConsultationFormRequest {
+import java.util.Date;
+import java.util.List;
+
+public record PrenatalConsultationFormRequest(
+        long patientID,
+        Date lastDYSmeNoRRheaDate,
+        List<AntecedentRequest> antecedentRequest
+) {
 }

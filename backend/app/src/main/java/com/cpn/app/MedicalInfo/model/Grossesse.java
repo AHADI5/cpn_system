@@ -1,4 +1,4 @@
-package com.cpn.app.MedicalInfo;
+package com.cpn.app.MedicalInfo.model;
 
 import com.cpn.app.PatientManagement.models.Patient;
 import jakarta.persistence.*;
@@ -7,10 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Builder
