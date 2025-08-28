@@ -1,0 +1,54 @@
+[
+    {
+      "userName": "admin",
+      "password": "admin",
+      "isEnabled": true ,
+      "userRoles": [
+        { "roleName": "ADMIN", "description": "Administrator" }
+      ]
+    },
+    {
+      "userName": "utilisateur01",
+      "password": "123",
+      "isEnabled": true ,
+      "userRoles": [
+        { "roleName": "PORTAL_USER", "description": "Portal User" }
+      ]
+    },
+    {
+      "userName": "accuse01",
+      "password": "123",
+      "userRoles": [
+        { "roleName": "ACCUSE", "description": "Personne accusée" }
+      ]
+    },
+    {
+      "userName": "juge01",
+      "password": "123",
+      "userRoles": [
+        { "roleName": "JUGE", "description": "Juge en charge du procès" }
+      ]
+    },
+    {
+      "userName": "greffier01",
+      "password": "123",
+      "userRoles": [
+        { "roleName": "GREFFIER", "description": "Greffier du tribunal" }
+      ]
+    },
+    {
+      "userName": "accusant01",
+      "password": "123",
+      "userRoles": [
+        { "roleName": "ACCUSANT", "description": "Personne qui accuse" }
+      ]
+    },
+    {
+      "userName": "temoin01",
+      "password": "123",
+      "userRoles": [
+        { "roleName": "TEMOIN", "description": "Témoin du procès" }
+      ]
+    }
+  ]
+
