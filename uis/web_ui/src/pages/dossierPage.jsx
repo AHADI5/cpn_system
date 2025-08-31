@@ -2,24 +2,27 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   Box,
-  Grid,
   Paper,
   Typography,
   Stack,
   Button,
-  Chip,
   IconButton,
   CircularProgress,
   Snackbar,
   Alert,
+  Divider,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
 import Avatar from '@mui/material/Avatar';
 
 import colors from '../utils/colors';
-import { api } from '../api'; // ensure this points to your api helper
-import CreateDossierDialog from '../components/layout/createDossier'; // adjust path if needed
+import { api } from '../api';
+import CreateDossierDialog from '../components/layout/createDossier';
 
 function initials(name = '') {
   const parts = name.trim().split(/\s+/);
@@ -34,9 +37,36 @@ function stringToColor(string = '') {
   let color = '#';
   for (let i = 0; i < 3; i += 1) {
     const value = (hash >> (i * 8)) & 0xff;
-    color += (`00${value.toString(16)}`).slice(-2); // fixed: use template string
+    color += (`00${value.toString(16)}`).slice(-2);
   }
   return color;
+}
+
+function normalize(str = '') {
+  return String(str).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
+function getDossierDate(dossier) {
+  // Try common date fields (adjust to your API)
+  const raw =
+    dossier?.createdAt ||
+    dossier?.created_at ||
+    dossier?.date ||
+    dossier?.updatedAt ||
+    null;
+  if (!raw) return null;
+  const d = raw instanceof Date ? raw : new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function isSameDay(a, b) {
+  return (
+    a &&
+    b &&
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 function FolderCard({ dossier }) {
@@ -53,12 +83,11 @@ function FolderCard({ dossier }) {
         position: 'relative',
         overflow: 'visible',
         p: 2,
-        pt: 3, // space for the top strip
+        pt: 3,
         height: '100%',
         borderColor: colors.borderColor,
         transition: (t) => t.transitions.create('box-shadow'),
         '&:hover': { boxShadow: 4 },
-        // Folder top strip
         '&::after': {
           content: '""',
           position: 'absolute',
@@ -71,7 +100,6 @@ function FolderCard({ dossier }) {
           borderTopLeftRadius: '10px',
           borderTopRightRadius: '10px',
         },
-        // Folder tab
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -97,24 +125,21 @@ function FolderCard({ dossier }) {
             {initials(fullName) || '?'}
           </Avatar>
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
               {fullName || 'Unnamed patient'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {dossier?.uniqueID ? `Folder ${dossier.uniqueID}` : (dossier?.id ? `Folder #${dossier.id}` : 'Folder')}
+              {dossier?.uniqueID
+                ? `${dossier.uniqueID}`
+                : dossier?.id
+                ? `#${dossier.id}`
+                : 'Folder'}
             </Typography>
           </Box>
         </Stack>
         <IconButton size="small">
           <MoreVertRoundedIcon />
         </IconButton>
-      </Stack>
-
-      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-        {patient.gender ? <Chip size="small" label={patient.gender} /> : null}
-        {patient.phoneNumber ? (
-          <Chip size="small" label={patient.phoneNumber} variant="outlined" />
-        ) : null}
       </Stack>
     </Paper>
   );
@@ -125,6 +150,10 @@ export default function DossiersPage() {
   const [dossiers, setDossiers] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [toast, setToast] = useState({ open: false, msg: '', severity: 'success' });
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [filterDate, setFilterDate] = useState(''); // yyyy-mm-dd (simple native picker)
 
   const load = async () => {
     try {
@@ -142,27 +171,118 @@ export default function DossiersPage() {
     load();
   }, []);
 
+  const filteredDossiers = useMemo(() => {
+    const q = normalize(search.trim());
+    const hasQuery = q.length > 0;
+    const hasDate = Boolean(filterDate);
+
+    return dossiers.filter((d) => {
+      // Search by name or unique ID
+      if (hasQuery) {
+        const patient = d?.patient || {};
+        const name = normalize([patient.firstName, patient.lastName].filter(Boolean).join(' '));
+        const nameAlt = normalize([patient.lastName, patient.firstName].filter(Boolean).join(' '));
+        const uid = normalize(d?.uniqueID ?? d?.id ?? '');
+        const matchesText =
+          name.includes(q) || nameAlt.includes(q) || String(uid).includes(q);
+        if (!matchesText) return false;
+      }
+
+      // Date filter (same day)
+      if (hasDate) {
+        const itemDate = getDossierDate(d);
+        if (!itemDate) return false;
+
+        // filterDate is yyyy-mm-dd; compare same-day
+        const [yyyy, mm, dd] = filterDate.split('-').map((n) => parseInt(n, 10));
+        const selected = new Date(yyyy, (mm || 1) - 1, dd || 1);
+        if (!isSameDay(itemDate, selected)) return false;
+      }
+
+      return true;
+    });
+  }, [dossiers, search, filterDate]);
+
+  const clearFilters = () => {
+    setSearch('');
+    setFilterDate('');
+  };
+
   return (
-    <Box>
+    <Box sx={{ pt: 1.5, px: 2, width: '100%', maxWidth: '100%' }}>
+      {/* Title */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ xs: 'flex-start', sm: 'center' }}
         justifyContent="space-between"
         sx={{ mb: 2, gap: 1 }}
       >
-        <Typography variant="h5" sx={{ fontWeight: 800, color: colors.textPrimary }}>
+        <Typography variant="h5" sx={{ fontWeight: 500, color: colors.textPrimary }}>
           Dossiers
         </Typography>
+      </Stack>
+
+      {/* Toolbar: Search | Date | Create */}
+      <Stack
+        direction="row"
+        alignItems="center"
+        flexWrap="wrap"
+        sx={{ gap: 1.5, mb: 1.5, width: '100%' }}
+      >
+        {/* Search bar with hint */}
+        <TextField
+          size="small"
+          placeholder="Search name or unique ID"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ flex: 1, minWidth: { xs: '100%', sm: 260 } }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchRoundedIcon fontSize="small" />
+              </InputAdornment>
+            ),
+            endAdornment: search ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearch('')}>
+                  <ClearRoundedIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }}
+        />
+
+        {/* Spacer to push right-side items on wide screens */}
+        <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
+
+        {/* Date filter (same-day) — simple native date input to avoid extra deps */}
+        <TextField
+          size="small"
+          type="date"
+          label="Date"
+          value={filterDate}
+          onChange={(e) => setFilterDate(e.target.value)}
+          sx={{ width: { xs: '100%', sm: 220 } }}
+          InputLabelProps={{ shrink: true }}
+        />
+
         <Button
           variant="contained"
           startIcon={<AddRoundedIcon />}
           onClick={() => setDialogOpen(true)}
-          sx={{ px: 2.5, backgroundColor: colors.primary, '&:hover': { backgroundColor: colors.primary } }}
+          sx={{
+            whiteSpace: 'nowrap',
+            backgroundColor: colors.primary,
+            '&:hover': { backgroundColor: colors.primary },
+          }}
         >
-          Create
+          Create folder
         </Button>
       </Stack>
 
+      <Divider sx={{ mb: 2 }} />
+
+      {/* Content */}
       {loading ? (
         <Box sx={{ display: 'grid', placeItems: 'center', mt: 8 }}>
           <CircularProgress />
@@ -184,15 +304,40 @@ export default function DossiersPage() {
             Create folder
           </Button>
         </Paper>
+      ) : filteredDossiers.length === 0 ? (
+        <Paper variant="outlined" sx={{ p: 3, borderColor: colors.borderColor }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" spacing={1} justifyContent="space-between">
+            <Typography color="text.secondary">
+              No results for your current filters.
+            </Typography>
+            <Button onClick={clearFilters}>Clear filters</Button>
+          </Stack>
+        </Paper>
       ) : (
-        // inside DossiersPage return:
-      <Grid container spacing={2} justifyContent="flex-start" alignItems="stretch">
-        {dossiers.map((d) => (
-          <Grid item key={d.uniqueID || d.id} xs={12} sm={6} md={4} lg={3}>
-            <FolderCard dossier={d} />
-          </Grid>
-        ))}
-      </Grid>
+        <>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Showing {filteredDossiers.length} of {dossiers.length}
+          </Typography>
+
+          {/* Cards — CSS Grid for perfect left/right alignment */}
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+                lg: 'repeat(4, 1fr)',
+              },
+              width: '100%',
+            }}
+          >
+            {filteredDossiers.map((d) => (
+              <FolderCard key={d.uniqueID || d.id} dossier={d} />
+            ))}
+          </Box>
+        </>
       )}
 
       <CreateDossierDialog

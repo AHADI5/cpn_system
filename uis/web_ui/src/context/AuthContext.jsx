@@ -32,6 +32,15 @@ export function AuthProvider({ children }) {
         setLoading(false);
     };
 
+    // Function to extract informations  , Role, 
+    const storedToken  = localStorage.getItem("token")
+
+      const decoded = jwtDecode(storedToken); 
+      console.log("Decoded token" , decoded);
+      const userRole = decoded.authorities;
+      const userEmail = decoded.sub;
+
+
     // Function to log out the user and clear the token
     // This function should be called when the user logs out
     const logout = () => {
@@ -40,7 +49,7 @@ export function AuthProvider({ children }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, permissions, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, permissions, loading, userRole, userEmail, login, logout }}>
             {children}
         </AuthContext.Provider>
     );

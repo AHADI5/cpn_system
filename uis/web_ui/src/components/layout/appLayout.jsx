@@ -1,66 +1,49 @@
-// src/components/AppLayout.jsx
-import { useState } from 'react';
-import { Box, Toolbar, useMediaQuery } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
-import TopBar from './TopBar';
-import Sidebar from './Sidebar';
+import React from 'react';
+import { Outlet } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import AppNavbar from './topBar';
+import Header from './Header';
+import SideMenu from './sideBar';
+import AppTheme from '../../theme/AppTheme';
 
-const drawerWidth = 260;
 
-export default function AppLayout({ children }) {
-  const theme = useTheme();
-  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
-
-  // Keep the drawer open by default on desktop
-  const [desktopOpen] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const toggleSidebar = () => {
-    if (!isDesktop) setMobileOpen((v) => !v);
-  };
-
+export default function Dashboard({ disableCustomTheme }) {
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <TopBar
-        onMenuClick={toggleSidebar}
-        drawerWidth={drawerWidth}
-        desktopOpen={isDesktop && desktopOpen}
-      />
-
-      {/* Desktop: permanent drawer under the AppBar */}
-      <Sidebar
-        variant="permanent"
-        open={isDesktop && desktopOpen}
-        onClose={() => {}}
-        drawerWidth={drawerWidth}
-        sx={{ display: { xs: 'none', md: 'block' } }}
-      />
-
-      {/* Mobile: temporary overlay drawer */}
-      <Sidebar
-        variant="temporary"
-        open={!isDesktop && mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        drawerWidth={drawerWidth}
-        sx={{ display: { xs: 'block', md: 'none' } }}
-      />
-
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          // Single, clear offset: shift content right by the drawer width on desktop
-          ml: { md: `${drawerWidth}px` },
-          px: { xs: 2, md: 3 },
-          py: { xs: 2, md: 3 },
-          minWidth: 0,
-          width: '100%',
-        }}
-      >
-        {/* Spacer for the fixed AppBar */}
-        <Toolbar />
-        {children}
+    <AppTheme disableCustomTheme={disableCustomTheme}>
+      <CssBaseline enableColorScheme />
+      <Box sx={{ display: 'flex' }}>
+        {/* Sidebar */}
+        <SideMenu />
+        {/* Top Navbar */}
+        <AppNavbar />
+        {/* Main content (dynamic via React Router) */}
+        <Box
+          component="main"
+          sx={(theme) => ({
+            flexGrow: 1,
+            backgroundColor: theme.vars
+              ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
+              : alpha(theme.palette.background.default, 1),
+            overflow: 'auto',
+          })}
+        >
+          <Stack
+            spacing={2}
+            sx={{
+              mx: 1,
+              pb: 2,
+              mt: { xs: 8, md: 0 },
+            }}
+          >
+            <Header />
+            {/* Dynamic content goes here */}
+            <Outlet />
+          </Stack>
+        </Box>
       </Box>
-    </Box>
+    </AppTheme>
   );
 }

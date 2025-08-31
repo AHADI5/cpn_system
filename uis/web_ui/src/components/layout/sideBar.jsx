@@ -1,53 +1,87 @@
-// src/components/Sidebar.jsx
-import { Drawer, Toolbar, Box, List, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import GroupsIcon from '@mui/icons-material/Groups';
-import EventNoteIcon from '@mui/icons-material/EventNote';
-import { useNavigate, useLocation } from 'react-router-dom';
+import * as React from 'react';
+import { styled } from '@mui/material/styles';
+import Avatar from '@mui/material/Avatar';
+import MuiDrawer, { drawerClasses } from '@mui/material/Drawer';
+import Box from '@mui/material/Box';
+import Divider from '@mui/material/Divider';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import SelectContent from './SelectContent';
+import MenuContent from './MenuContent';
+import CardAlert from './CardAlert';
+import OptionsMenu from './OptionMenu';
 
-const items = [
-  { text: 'Dossiers', icon: <FolderOpenIcon />, to: '/dossiers' },
-  { text: 'Patients', icon: <GroupsIcon />, to: '/patients', disabled: true },
-  { text: 'Appointments', icon: <EventNoteIcon />, to: '/appointments', disabled: true },
-];
+const drawerWidth = 240;
 
-export default function Sidebar({ variant, open, onClose, drawerWidth, sx }) {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
+const Drawer = styled(MuiDrawer)({
+  width: drawerWidth,
+  flexShrink: 0,
+  boxSizing: 'border-box',
+  mt: 10,
+  [`& .${drawerClasses.paper}`]: {
+    width: drawerWidth,
+    boxSizing: 'border-box',
+  },
+});
 
+export default function SideMenu() {
   return (
     <Drawer
-      variant={variant}
-      open={open}
-      onClose={onClose}
-      ModalProps={{ keepMounted: true }}
+      variant="permanent"
       sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: drawerWidth,
-          boxSizing: 'border-box',
+        display: { xs: 'none', md: 'block' },
+        [`& .${drawerClasses.paper}`]: {
+          backgroundColor: 'background.paper',
         },
-        ...sx,
       }}
     >
-      {/* Offset equals AppBar height */}
-      <Toolbar />
-      <Box sx={{ overflow: 'auto' }}>
-        <List>
-          {items.map((it) => (
-            <ListItemButton
-              key={it.text}
-              selected={pathname.startsWith(it.to)}
-              onClick={() => !it.disabled && navigate(it.to)}
-              disabled={it.disabled}
-            >
-              <ListItemIcon>{it.icon}</ListItemIcon>
-              <ListItemText primary={it.text} />
-            </ListItemButton>
-          ))}
-        </List>
+      <Box
+        sx={{
+          display: 'flex',
+          mt: 'calc(var(--template-frame-height, 0px) + 4px)',
+          p: 1.5,
+        }}
+      >
+        <SelectContent />
       </Box>
+      <Divider />
+      <Box
+        sx={{
+          overflow: 'auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <MenuContent />
+        <CardAlert />
+      </Box>
+      <Stack
+        direction="row"
+        sx={{
+          p: 2,
+          gap: 1,
+          alignItems: 'center',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Avatar
+          sizes="small"
+          alt="Riley Carter"
+          src="/static/images/avatar/7.jpg"
+          sx={{ width: 36, height: 36 }}
+        />
+        <Box sx={{ mr: 'auto' }}>
+          <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: '16px' }}>
+            Riley Carter
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            riley@email.com
+          </Typography>
+        </Box>
+        <OptionsMenu />
+      </Stack>
     </Drawer>
   );
 }
