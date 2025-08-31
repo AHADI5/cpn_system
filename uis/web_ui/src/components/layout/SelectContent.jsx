@@ -60,11 +60,11 @@ export default function SelectContent() {
 
       <MenuItem value="">
         <ListItemAvatar>
-          <Avatar alt="Sitemark web">
+          <Avatar alt="CPN APP">
             <DevicesRoundedIcon sx={{ fontSize: '1rem' }} />
           </Avatar>
         </ListItemAvatar>
-        <ListItemText primary="Sitemark-web" secondary="Web app" />
+        <ListItemText primary="CPN APP" secondary="Web app" />
       </MenuItem>
 
       <MenuItem value={10}>

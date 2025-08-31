@@ -5,7 +5,7 @@ import {
   TextField, Button, Grid, Stack, Alert
 } from '@mui/material';
 import colors from '../../utils/colors';
-import { createPatient } from '../../api';
+import { createPatient } from '../../apis/api';
 
 export default function CreateDossierDialog({ open, onClose, onCreated }) {
   const [loading, setLoading] = useState(false);

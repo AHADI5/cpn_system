@@ -7,19 +7,41 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/loginPage';
 import DossiersPage from './pages/dossierPage';
 import AppLayout from './components/layout/appLayout';
-
+import RoleHomeRedirect from './routes/HomePageRidirect';
+import AdminDashboard from './pages/adminDashboard';
+import UsersPage from './pages/usersPage';
+import DoctorDashboard from './pages/doctorDasboard';
+import DossierDetail  from './pages/dossierDetail';
+// Authenticated shell (keeps your layout)
 function ProtectedShell() {
   const { user, loading } = useAuth();
-
   if (loading) return null; // or a spinner
   if (!user) return <Navigate to="/login" replace />;
-
-  // Authenticated area with shared layout (TopBar + Sidebar)
   return (
     <AppLayout>
       <Outlet />
     </AppLayout>
   );
+}
+
+// Role gate for specific pages
+function RoleGuard({ allow, children }) {
+  const { user, role, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!allow.includes(role)) return <Navigate to="/" replace />;
+  return children;
+}
+
+// Temporary placeholders — replace with your real pages
+
+
+function ConsultationsPage() {
+  return <div style={{ padding: 16 }}>Consultations</div>;
+}
+
+function RolesPage() {
+  return <div style={{ padding: 16 }}>Roles (Admin only)</div>;
 }
 
 export default function App() {
@@ -31,14 +53,60 @@ export default function App() {
 
         {/* Protected + Layout */}
         <Route element={<ProtectedShell />}>
-          <Route path="/" element={<Navigate to="/dossiers" replace />} />
+          {/* Role-based home */}
+          <Route path="/" element={<RoleHomeRedirect />} />
+
+          {/* Role-gated dashboards */}
+          <Route
+            path="/doctorDashboard"
+            element={
+              <RoleGuard allow={['DOCTOR']}>
+                <DoctorDashboard />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/adminDashboard"
+            element={
+              <RoleGuard allow={['ADMIN']}>
+                <AdminDashboard />
+              </RoleGuard>
+            }
+          />
+
+          {/* Shared routes */}
           <Route path="/dossiers" element={<DossiersPage />} />
-          {/* Add more authenticated routes here */}
-          {/* <Route path="/patients" element={<PatientsPage />} /> */}
+          <Route path="/consultations" element={<ConsultationsPage />} />
+
+          {/* Admin-only routes from menu */}
+          <Route
+            path="/users"
+            element={
+              <RoleGuard allow={['ADMIN']}>
+                <UsersPage />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/roles"
+            element={
+              <RoleGuard allow={['ADMIN']}>
+                <RolesPage />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/dossiers/:id"
+            element={
+              <RoleGuard allow={['DOCTOR']}>
+                <DossierDetail />
+              </RoleGuard>
+            }
+          />
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to="/dossiers" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>
   );

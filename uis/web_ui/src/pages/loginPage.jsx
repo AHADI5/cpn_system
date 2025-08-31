@@ -1,6 +1,8 @@
-import { useAuth } from "../context/AuthContext";
+// src/pages/LoginPage.jsx
+import { useAuth, defaultPathByRole, extractRole } from "../context/AuthContext";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import Logo from "../assets/logo/logo_v4.png";
 import colors from "../utils/colors";
 import {
@@ -39,18 +41,18 @@ async function doLogin({ username, password }) {
           const errJson = text ? JSON.parse(text) : {};
           msg = errJson.message || msg;
         } catch {
-          // Intentionally ignored: not JSON, treat as plain token string
+          // not JSON
         }
         throw new Error(msg);
       }
 
-      // If backend ever returns JSON: {"token":"..."}
+      // If backend returns JSON with token
       try {
         const json = text ? JSON.parse(text) : null;
         const token = json?.token || json?.accessToken || json?.jwt || json?.data?.token;
         if (token) return token;
       } catch {
-        // Not JSON; treat as plain token string
+        // plain text token
       }
 
       const token = (text || "").trim().replace(/^"|"$/g, "");
@@ -75,13 +77,32 @@ export default function LoginPage() {
     setLoading(true);
 
     const form = new FormData(event.currentTarget);
-    const username = form.get("username");
-    const password = form.get("password");
+    const username = String(form.get("username") || "").trim();
+    const password = String(form.get("password") || "").trim();
+
+    if (!username || !password) {
+      setError("Please enter username and password");
+      setLoading(false);
+      return;
+    }
 
     try {
       const token = await doLogin({ username, password });
-      login(token);
-      navigate("/dossiers", { replace: true });
+
+      // login() stores token and returns normalized role
+      let role = login(token);
+
+      // Fallback if login() didn't return it for some reason
+      if (!role) {
+        try {
+          const decoded = jwtDecode(token);
+          role = extractRole(decoded);
+        } catch {
+          // ignore
+        }
+      }
+
+      navigate(defaultPathByRole(role), { replace: true });
     } catch (e) {
       setError(e.message || "Login failed");
     } finally {
@@ -101,10 +122,23 @@ export default function LoginPage() {
 
             {error ? <Alert severity="error">{error}</Alert> : null}
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               <Stack spacing={2}>
-                <TextField name="username" label="Username" fullWidth required />
-                <TextField name="password" label="Password" type="password" fullWidth required />
+                <TextField
+                  name="username"
+                  label="Username"
+                  fullWidth
+                  required
+                  autoComplete="username"
+                />
+                <TextField
+                  name="password"
+                  label="Password"
+                  type="password"
+                  fullWidth
+                  required
+                  autoComplete="current-password"
+                />
                 <Button
                   type="submit"
                   variant="contained"

@@ -13,7 +13,9 @@ import {
   Divider,
   TextField,
   InputAdornment,
+  CardActionArea,
 } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -21,8 +23,9 @@ import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
 import Avatar from '@mui/material/Avatar';
 
 import colors from '../utils/colors';
-import { api } from '../api';
+import { api } from '../apis/api';
 import CreateDossierDialog from '../components/layout/createDossier';
+import { useAuth } from '../context/AuthContext';
 
 function initials(name = '') {
   const parts = name.trim().split(/\s+/);
@@ -47,7 +50,6 @@ function normalize(str = '') {
 }
 
 function getDossierDate(dossier) {
-  // Try common date fields (adjust to your API)
   const raw =
     dossier?.createdAt ||
     dossier?.created_at ||
@@ -146,6 +148,9 @@ function FolderCard({ dossier }) {
 }
 
 export default function DossiersPage() {
+  const { role } = useAuth();
+  const canOpen = role === 'DOCTOR';
+  const canCreate = role === 'RECEPTIONIST'; // per your spec
   const [loading, setLoading] = useState(true);
   const [dossiers, setDossiers] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -153,7 +158,7 @@ export default function DossiersPage() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [filterDate, setFilterDate] = useState(''); // yyyy-mm-dd (simple native picker)
+  const [filterDate, setFilterDate] = useState(''); // yyyy-mm-dd
 
   const load = async () => {
     try {
@@ -177,23 +182,18 @@ export default function DossiersPage() {
     const hasDate = Boolean(filterDate);
 
     return dossiers.filter((d) => {
-      // Search by name or unique ID
       if (hasQuery) {
         const patient = d?.patient || {};
         const name = normalize([patient.firstName, patient.lastName].filter(Boolean).join(' '));
         const nameAlt = normalize([patient.lastName, patient.firstName].filter(Boolean).join(' '));
         const uid = normalize(d?.uniqueID ?? d?.id ?? '');
-        const matchesText =
-          name.includes(q) || nameAlt.includes(q) || String(uid).includes(q);
+        const matchesText = name.includes(q) || nameAlt.includes(q) || String(uid).includes(q);
         if (!matchesText) return false;
       }
 
-      // Date filter (same day)
       if (hasDate) {
         const itemDate = getDossierDate(d);
         if (!itemDate) return false;
-
-        // filterDate is yyyy-mm-dd; compare same-day
         const [yyyy, mm, dd] = filterDate.split('-').map((n) => parseInt(n, 10));
         const selected = new Date(yyyy, (mm || 1) - 1, dd || 1);
         if (!isSameDay(itemDate, selected)) return false;
@@ -222,14 +222,8 @@ export default function DossiersPage() {
         </Typography>
       </Stack>
 
-      {/* Toolbar: Search | Date | Create */}
-      <Stack
-        direction="row"
-        alignItems="center"
-        flexWrap="wrap"
-        sx={{ gap: 1.5, mb: 1.5, width: '100%' }}
-      >
-        {/* Search bar with hint */}
+      {/* Toolbar: Search | Date | Create (only for Receptionist) */}
+      <Stack direction="row" alignItems="center" flexWrap="wrap" sx={{ gap: 1.5, mb: 1.5, width: '100%' }}>
         <TextField
           size="small"
           placeholder="Search name or unique ID"
@@ -252,10 +246,8 @@ export default function DossiersPage() {
           }}
         />
 
-        {/* Spacer to push right-side items on wide screens */}
         <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
 
-        {/* Date filter (same-day) — simple native date input to avoid extra deps */}
         <TextField
           size="small"
           type="date"
@@ -266,18 +258,20 @@ export default function DossiersPage() {
           InputLabelProps={{ shrink: true }}
         />
 
-        <Button
-          variant="contained"
-          startIcon={<AddRoundedIcon />}
-          onClick={() => setDialogOpen(true)}
-          sx={{
-            whiteSpace: 'nowrap',
-            backgroundColor: colors.primary,
-            '&:hover': { backgroundColor: colors.primary },
-          }}
-        >
-          Create folder
-        </Button>
+        {canCreate && (
+          <Button
+            variant="contained"
+            startIcon={<AddRoundedIcon />}
+            onClick={() => setDialogOpen(true)}
+            sx={{
+              whiteSpace: 'nowrap',
+              backgroundColor: colors.primary,
+              '&:hover': { backgroundColor: colors.primary },
+            }}
+          >
+            Create folder
+          </Button>
+        )}
       </Stack>
 
       <Divider sx={{ mb: 2 }} />
@@ -295,31 +289,27 @@ export default function DossiersPage() {
           <Typography color="text.secondary" sx={{ mb: 2 }}>
             Start by creating a new folder for a patient.
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddRoundedIcon />}
-            onClick={() => setDialogOpen(true)}
-            sx={{ backgroundColor: colors.primary, '&:hover': { backgroundColor: colors.primary } }}
-          >
-            Create folder
-          </Button>
+          {canCreate && (
+            <Button
+              variant="contained"
+              startIcon={<AddRoundedIcon />}
+              onClick={() => setDialogOpen(true)}
+              sx={{ backgroundColor: colors.primary, '&:hover': { backgroundColor: colors.primary } }}
+            >
+              Create folder
+            </Button>
+          )}
         </Paper>
       ) : filteredDossiers.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 3, borderColor: colors.borderColor }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" spacing={1} justifyContent="space-between">
-            <Typography color="text.secondary">
-              No results for your current filters.
-            </Typography>
+            <Typography color="text.secondary">No results for your current filters.</Typography>
             <Button onClick={clearFilters}>Clear filters</Button>
           </Stack>
         </Paper>
       ) : (
         <>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Showing {filteredDossiers.length} of {dossiers.length}
-          </Typography>
-
-          {/* Cards — CSS Grid for perfect left/right alignment */}
+          {/* Cards — CSS Grid */}
           <Box
             sx={{
               display: 'grid',
@@ -333,21 +323,39 @@ export default function DossiersPage() {
               width: '100%',
             }}
           >
-            {filteredDossiers.map((d) => (
-              <FolderCard key={d.uniqueID || d.id} dossier={d} />
-            ))}
+            {filteredDossiers.map((d) => {
+              const id = d.uniqueID || d.id;
+              const card = <FolderCard dossier={d} />;
+
+              return canOpen ? (
+                <CardActionArea
+                  key={id}
+                  component={RouterLink}
+                  to={`/dossiers/${id}`}
+                  sx={{ borderRadius: 1 }}
+                >
+                  {card}
+                </CardActionArea>
+              ) : (
+                <Box key={id} sx={{ cursor: 'not-allowed', opacity: 0.95 }}>
+                  {card}
+                </Box>
+              );
+            })}
           </Box>
         </>
       )}
 
-      <CreateDossierDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        onCreated={() => {
-          setToast({ open: true, msg: 'Folder created successfully', severity: 'success' });
-          load();
-        }}
-      />
+      {canCreate && (
+        <CreateDossierDialog
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          onCreated={() => {
+            setToast({ open: true, msg: 'Folder created successfully', severity: 'success' });
+            load();
+          }}
+        />
+      )}
 
       <Snackbar
         open={toast.open}
