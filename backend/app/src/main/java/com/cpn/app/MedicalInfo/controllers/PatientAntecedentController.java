@@ -23,11 +23,9 @@ public class PatientAntecedentController {
     @PutMapping
     public ResponseEntity<PatientAntecedentResponse> upsert(
             @PathVariable Long patientId,
-            @RequestBody AntecedentRequest request,
-            Authentication authentication
+            @RequestBody AntecedentRequest request
     ) {
-        String recordedBy = authentication != null ? authentication.getName() : "system";
-        PatientAntecedent saved = patientAntecedentService.upsert(patientId, request, recordedBy);
+        PatientAntecedent saved = patientAntecedentService.upsert(patientId, request, null );
         return ResponseEntity.ok(PatientAntecedentResponse.fromEntity(saved));
     }
 

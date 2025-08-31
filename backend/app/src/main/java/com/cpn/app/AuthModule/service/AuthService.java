@@ -13,6 +13,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.Optional;
 
 @Service
@@ -44,6 +46,9 @@ public record AuthService(
         User userEntity = user.orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         log.info("User {} logged in", userEntity.getUsername());
+        //Set the last authenticated date
+        userEntity.setLastLogin(LocalDateTime.now());
+        userRepository.save(userEntity);
         return jwtService.generateToken(userEntity);
     }
 

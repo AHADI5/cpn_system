@@ -41,6 +41,6 @@ public class UserRoleService  extends BaseCrudServiceImpl<UserRole, Long> {
 
     @Override
     protected JpaRepository<UserRole, Long> getRepository() {
-        return null;
+        return userRoleRepository;
     }
 }
