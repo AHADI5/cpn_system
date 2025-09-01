@@ -1,5 +1,5 @@
 // src/pages/DossierDetail.jsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -7,9 +7,6 @@ import {
   Stack,
   Typography,
   Divider,
-  Tabs,
-  Tab,
-  Grid,
   Avatar,
   Breadcrumbs,
   Link,
@@ -24,10 +21,12 @@ import {
   TableCell,
   TableBody,
   Button,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import colors from '../utils/colors';
-// Uses fake API defined in src/apis/doctor.js
 import { api } from '../apis/doctor';
+import CreateCpnDialog from '../components/layout/createCPNDialog';
 
 function initials(name = '') {
   const parts = name.trim().split(/\s+/);
@@ -68,11 +67,16 @@ export default function DossierDetail() {
   const { id } = useParams(); // dossier id
   const [loading, setLoading] = useState(true);
   const [dossier, setDossier] = useState(null);
-  const [tab, setTab] = useState('consultations');
 
   const [consultations, setConsultations] = useState([]);
   const [fiches, setFiches] = useState([]);
   const [loadingTabs, setLoadingTabs] = useState(true);
+
+  const [tab, setTab] = useState('cpn'); // default to CPNs tab
+  const cpnRef = useRef(null);
+
+  // Create CPN dialog state
+  const [createOpen, setCreateOpen] = useState(false);
 
   const patient = dossier?.patient || {};
   const fullName = useMemo(
@@ -80,6 +84,14 @@ export default function DossierDetail() {
     [patient.firstName, patient.lastName]
   );
   const age = ageFromBirthDate(patient.birthDate || patient.dob);
+
+  const upcomingConsultations = useMemo(() => {
+    if (!Array.isArray(consultations)) return [];
+    const now = Date.now();
+    return consultations
+      .filter((c) => c?.date && !Number.isNaN(new Date(c.date).getTime()) && new Date(c.date).getTime() >= now)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  }, [consultations]);
 
   const loadDossier = async () => {
     setLoading(true);
@@ -119,6 +131,21 @@ export default function DossierDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  const scrollToCpn = () => {
+    setTab('cpn');
+    cpnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleOpenCreate = () => setCreateOpen(true);
+  const handleCloseCreate = () => setCreateOpen(false);
+
+  const handleCreated = async () => {
+    setCreateOpen(false);
+    setTab('cpn');
+    await loadTabs();
+    cpnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <Box sx={{ p: 2 }}>
       {/* Breadcrumb */}
@@ -129,7 +156,7 @@ export default function DossierDetail() {
         <Typography color="text.primary">Dossier {dossier?.uniqueID || id}</Typography>
       </Breadcrumbs>
 
-      {/* Title row */}
+      {/* Title row + actions */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ xs: 'flex-start', sm: 'center' }}
@@ -140,23 +167,33 @@ export default function DossierDetail() {
           {fullName || 'Patient'} {dossier?.uniqueID ? `• ${dossier.uniqueID}` : `• #${id}`}
         </Typography>
 
-        {/* Example action: create CPN fiche (wire later) */}
-        <Button variant="contained" sx={{ backgroundColor: colors?.primary, '&:hover': { backgroundColor: colors?.primary } }}>
-          Créer fiche CPN
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" onClick={scrollToCpn}>
+            Fiches CPN ({loadingTabs ? '…' : fiches.length})
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleOpenCreate}
+            sx={{ backgroundColor: colors?.primary, '&:hover': { backgroundColor: colors?.primary } }}
+          >
+            Créer fiche CPN
+          </Button>
+        </Stack>
       </Stack>
 
-      {/* Patient info */}
+      {/* Patient info (stacked in a single column) */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         {loading ? (
           <Stack spacing={1}>
             <Skeleton height={28} />
             <Skeleton height={28} />
             <Skeleton height={28} />
+            <Skeleton height={28} />
+            <Skeleton height={28} />
           </Stack>
         ) : (
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm="auto">
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={2} alignItems="center">
               <Avatar
                 src={patient.avatarUrl}
                 alt={fullName}
@@ -164,50 +201,45 @@ export default function DossierDetail() {
               >
                 {initials(fullName) || '?'}
               </Avatar>
-            </Grid>
-            <Grid item xs={12} sm>
-              <Grid container spacing={1.5}>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Nom complet</Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{fullName || '—'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Identifiant</Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{dossier?.uniqueID || `#${id}`}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Sexe</Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{patient.gender || '—'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Naissance</Typography>
-                  <Typography sx={{ fontWeight: 600 }}>
-                    {patient.birthDate
-                      ? `${new Date(patient.birthDate).toLocaleDateString()} ${age != null ? `(${age} ans)` : ''}`
-                      : '—'}
-                  </Typography>
-                </Grid>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  {fullName || '—'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {dossier?.uniqueID || `#${id}`}
+                </Typography>
+              </Box>
+            </Stack>
 
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Téléphone</Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{patient.phoneNumber || '—'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">Email</Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{patient.email || '—'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" color="text.secondary">Adresse</Typography>
-                  <Typography sx={{ fontWeight: 600 }}>{patient.address || '—'}</Typography>
-                </Grid>
-              </Grid>
-            </Grid>
-          </Grid>
+            <Divider />
+
+            <Stack spacing={1.25}>
+              {[
+                { label: 'Sexe', value: patient.gender || '—' },
+                {
+                  label: 'Naissance',
+                  value: patient.birthDate
+                    ? `${new Date(patient.birthDate).toLocaleDateString()} ${age != null ? `(${age} ans)` : ''}`
+                    : '—',
+                },
+                { label: 'Téléphone', value: patient.phoneNumber || '—' },
+                { label: 'Email', value: patient.email || '—' },
+                { label: 'Adresse', value: patient.address || '—' },
+              ].map((f) => (
+                <Box key={f.label}>
+                  <Typography variant="caption" color="text.secondary">
+                    {f.label}
+                  </Typography>
+                  <Typography sx={{ fontWeight: 600 }}>{f.value}</Typography>
+                </Box>
+              ))}
+            </Stack>
+          </Stack>
         )}
       </Paper>
 
-      {/* Notebook (tabs) */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
+      {/* Content with tabs: CPNs + Upcoming consultations */}
+      <Paper ref={cpnRef} variant="outlined" sx={{ p: 2 }}>
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v)}
@@ -215,58 +247,21 @@ export default function DossierDetail() {
           indicatorColor="primary"
           variant="scrollable"
         >
-          <Tab label="Consultations" value="consultations" />
-          <Tab label="Fiches CPN" value="fiches" />
+          <Tab label={loadingTabs ? 'Fiches CPN' : `Fiches CPN (${fiches.length})`} value="cpn" />
+          <Tab label="Consultations à venir" value="upcoming" />
         </Tabs>
         <Divider />
 
-        {/* Consultations tab */}
-        <TabPanel value={tab} current="consultations">
+        {/* Fiches CPN */}
+        <TabPanel value={tab} current="cpn">
           {loadingTabs ? (
-            <Stack spacing={1} sx={{ mt: 2 }}>
-              <Skeleton height={28} />
-              <Skeleton height={28} />
-              <Skeleton height={28} />
-            </Stack>
-          ) : consultations.length === 0 ? (
-            <Typography color="text.secondary" sx={{ mt: 2 }}>
-              Aucune consultation.
-            </Typography>
-          ) : (
-            <List dense sx={{ mt: 1 }}>
-              {consultations.map((c) => (
-                <ListItem key={c.id} disableGutters divider>
-                  <ListItemText
-                    primary={
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography sx={{ fontWeight: 600 }}>
-                          {c.title || c.type || 'Consultation'}
-                        </Typography>
-                        {c.status ? <Chip label={c.status} size="small" /> : null}
-                      </Stack>
-                    }
-                    secondary={
-                      <Typography variant="body2" color="text.secondary">
-                        {c.date ? new Date(c.date).toLocaleString() : '—'}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          )}
-        </TabPanel>
-
-        {/* Fiches CPN tab */}
-        <TabPanel value={tab} current="fiches">
-          {loadingTabs ? (
-            <Stack spacing={1} sx={{ mt: 2 }}>
+            <Stack spacing={1} sx={{ mt: 1 }}>
               <Skeleton height={28} />
               <Skeleton height={28} />
               <Skeleton height={28} />
             </Stack>
           ) : fiches.length === 0 ? (
-            <Typography color="text.secondary" sx={{ mt: 2 }}>
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
               Aucune fiche CPN.
             </Typography>
           ) : (
@@ -290,7 +285,52 @@ export default function DossierDetail() {
             </Table>
           )}
         </TabPanel>
+
+        {/* Consultations à venir */}
+        <TabPanel value={tab} current="upcoming">
+          {loadingTabs ? (
+            <Stack spacing={1} sx={{ mt: 1 }}>
+              <Skeleton height={28} />
+              <Skeleton height={28} />
+              <Skeleton height={28} />
+            </Stack>
+          ) : upcomingConsultations.length === 0 ? (
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              Aucune consultation à venir.
+            </Typography>
+          ) : (
+            <List dense sx={{ mt: 0.5 }}>
+              {upcomingConsultations.map((c) => (
+                <ListItem key={c.id} disableGutters divider>
+                  <ListItemText
+                    primary={
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography sx={{ fontWeight: 600 }}>
+                          {c.title || c.type || 'Consultation'}
+                        </Typography>
+                        {c.status ? <Chip label={c.status} size="small" /> : null}
+                      </Stack>
+                    }
+                    secondary={
+                      <Typography variant="body2" color="text.secondary">
+                        {c.date ? new Date(c.date).toLocaleString() : '—'}
+                      </Typography>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </TabPanel>
       </Paper>
+
+      {/* Create CPN Dialog (separated) */}
+      <CreateCpnDialog
+        open={createOpen}
+        onClose={handleCloseCreate}
+        dossierId={id}
+        onCreated={handleCreated}
+      />
     </Box>
   );
 }
