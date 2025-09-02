@@ -18,7 +18,7 @@ import HelpRoundedIcon from '@mui/icons-material/HelpRounded';
 import { useAuth } from '../../context/AuthContext';
 
 const secondaryListItems = [
-  { text: 'Settings', icon: <SettingsRoundedIcon />, to: '/settings' },
+  { text: 'Settings', icon: <SettingsRoundedIcon />, to: '/settings/cpn' },
   { text: 'About', icon: <InfoRoundedIcon />, to: '/about' },
   { text: 'Feedback', icon: <HelpRoundedIcon />, to: '/feedback' },
 ];

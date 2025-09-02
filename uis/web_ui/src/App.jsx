@@ -12,6 +12,7 @@ import AdminDashboard from './pages/adminDashboard';
 import UsersPage from './pages/usersPage';
 import DoctorDashboard from './pages/doctorDasboard';
 import DossierDetail  from './pages/dossierDetail';
+import CpnSettings from './pages/cpnSettings'
 // Authenticated shell (keeps your layout)
 function ProtectedShell() {
   const { user, loading } = useAuth();
@@ -103,6 +104,10 @@ export default function App() {
               </RoleGuard>
             }
           />
+           <Route path="/settings/cpn" element={
+            <RoleGuard allow = {['DOCTOR']}>
+              <CpnSettings/>
+           </RoleGuard>} />
         </Route>
 
         {/* Fallback */}

@@ -332,6 +332,7 @@ export default function DossiersPage() {
                   key={id}
                   component={RouterLink}
                   to={`/dossiers/${id}`}
+                  state={{ dossier: d }}  
                   sx={{ borderRadius: 1 }}
                 >
                   {card}

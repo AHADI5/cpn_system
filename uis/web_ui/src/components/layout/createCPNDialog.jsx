@@ -14,31 +14,16 @@ import {
   Alert,
   Button,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  OutlinedInput,
+  Chip,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { api } from '../../apis/doctor';
-
-const FALLBACK_OBSTETRIC_BLOCKS = [
-  {
-    id: 2,
-    code: 'PREV_PREGNENCIES',
-    name: 'PREVIOUS PREGNENCIES',
-    description: 'OBSTETRICS ANTECEDANT',
-    antecedentType: 'OBSTETRICS ANTECEDANT',
-    active: true,
-    fields: [
-      {
-        id: 1,
-        code: 'Enfant-nouveau-né',
-        label: 'Nombre',
-        type: 'number',
-        required: true,
-        displayOrder: null,
-        constraints: {},
-        ui: {},
-      },
-    ],
-  },
-];
 
 function addDays(date, days) {
   const d = new Date(date);
@@ -47,38 +32,109 @@ function addDays(date, days) {
   return d;
 }
 
-export default function CreateCpnDialog({ open, onClose, dossierId, onCreated }) {
-  const [lmpDate, setLmpDate] = useState(''); // last amenorrhea date
-  const [anteBlocks, setAnteBlocks] = useState([]);
-  const [anteValues, setAnteValues] = useState({});
-  const [anteLoading, setAnteLoading] = useState(false);
+function toUpperType(t) {
+  return String(t || '').toUpperCase();
+}
+function castValueByType(val, type) {
+  const T = toUpperType(type);
+  if (val === '' || val === undefined || val === null) return undefined;
+  switch (T) {
+    case 'BOOLEAN': return Boolean(val);
+    case 'INTEGER': {
+      const n = Number(val);
+      return Number.isFinite(n) ? Math.trunc(n) : undefined;
+    }
+    case 'DECIMAL': {
+      const n = Number(val);
+      return Number.isFinite(n) ? n : undefined;
+    }
+    case 'DATE': return String(val); // yyyy-mm-dd
+    case 'ENUM': return String(val);
+    case 'MULTI_ENUM': return Array.isArray(val) ? val : [val].filter(Boolean);
+    case 'TEXT':
+    default: return String(val);
+  }
+}
+function isMissingRequired(val, type) {
+  const T = toUpperType(type);
+  if (T === 'BOOLEAN') return val === undefined || val === null; // false is valid
+  if (T === 'MULTI_ENUM') return !Array.isArray(val) || val.length === 0;
+  return val === '' || val === undefined || val === null;
+}
+function sortByDisplayOrder(fields = []) {
+  return [...fields].sort((a, b) => {
+    const ao = a.displayOrder ?? 0;
+    const bo = b.displayOrder ?? 0;
+    if (ao === bo) return 0;
+    return ao < bo ? -1 : 1;
+  });
+}
+
+export default function CreateCpnDialog({
+  open,
+  onClose,
+  dossierId,   // optional (legacy)
+  patientID,   // REQUIRED for real endpoint
+  patient,     // optional: for display
+  onCreated,
+}) {
+  const [lmpDate, setLmpDate] = useState(''); // yyyy-mm-dd
+  const [blocks, setBlocks] = useState([]);
+  const [values, setValues] = useState({}); // { [antecedentId]: { [fieldCode]: any } }
+  const [loadingDefs, setLoadingDefs] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState('');
 
   const estimatedDueDate = useMemo(() => {
     if (!lmpDate) return null;
-    const edd = addDays(lmpDate, 280); // 40 weeks
+    const edd = addDays(lmpDate, 280);
     return edd && !Number.isNaN(edd.getTime()) ? edd : null;
   }, [lmpDate]);
 
-  const setFieldValue = (blockCode, fieldCode, value) => {
-    setAnteValues((prev) => ({
+  const setFieldValue = (antecedentId, fieldCode, value) => {
+    setValues((prev) => ({
       ...prev,
-      [blockCode]: { ...(prev[blockCode] || {}), [fieldCode]: value },
+      [antecedentId]: { ...(prev[antecedentId] || {}), [fieldCode]: value },
     }));
   };
 
   const validateForm = () => {
     const errors = {};
+    if (!patientID) errors.patientID = 'Patient requis';
     if (!lmpDate) errors.lmpDate = 'La date est requise';
 
-    anteBlocks.forEach((b) => {
-      (b.fields || []).forEach((f) => {
+    blocks.forEach((b) => {
+      const fieldVals = values[b.id] || {};
+      sortByDisplayOrder(b.fields || []).forEach((f) => {
         if (f.required) {
-          const val = anteValues[b.code]?.[f.code];
-          if (val === '' || val === undefined || val === null) {
-            errors[`${b.code}.${f.code}`] = 'Champ requis';
+          const val = fieldVals[f.code];
+          if (isMissingRequired(val, f.type)) {
+            errors[`${b.id}.${f.code}`] = 'Champ requis';
+          }
+        }
+        if ((f.type === 'INTEGER' || f.type === 'DECIMAL') && fieldVals[f.code] !== undefined && fieldVals[f.code] !== '') {
+          const n = Number(fieldVals[f.code]);
+          if (Number.isFinite(n)) {
+            const { min, max } = f.constraints || {};
+            if (min !== undefined && n < min) errors[`${b.id}.${f.code}`] = `Min ${min}`;
+            if (max !== undefined && n > max) errors[`${b.id}.${f.code}`] = `Max ${max}`;
+          }
+        }
+        if (f.type === 'TEXT' && typeof fieldVals[f.code] === 'string' && f.constraints?.maxLength) {
+          if (fieldVals[f.code].length > f.constraints.maxLength) {
+            errors[`${b.id}.${f.code}`] = `Max ${f.constraints.maxLength} caractères`;
+          }
+        }
+        if (f.type === 'DATE' && fieldVals[f.code]) {
+          const { min, max } = f.constraints || {};
+          if (min && fieldVals[f.code] < min) errors[`${b.id}.${f.code}`] = `Date min ${min}`;
+          if (max && fieldVals[f.code] > max) errors[`${b.id}.${f.code}`] = `Date max ${max}`;
+        }
+        if ((f.type === 'ENUM' || f.type === 'MULTI_ENUM') && f.required) {
+          const opts = f.constraints?.options;
+          if (!Array.isArray(opts) || opts.length === 0) {
+            errors[`${b.id}.${f.code}`] = 'Options manquantes';
           }
         }
       });
@@ -88,98 +144,231 @@ export default function CreateCpnDialog({ open, onClose, dossierId, onCreated })
     return Object.keys(errors).length === 0;
   };
 
-  const loadObstetricAntecedents = async () => {
-    setAnteLoading(true);
+  const loadDefinitions = async () => {
+    setLoadingDefs(true);
     try {
-      let data;
-      if (typeof api.fetchAntecedentBlocks === 'function') {
-        data = await api.fetchAntecedentBlocks({ dossierId, antecedentType: 'OBSTETRICS ANTECEDANT' });
+      let defs = [];
+      if (typeof api.listAntecedentDefinitions === 'function') {
+        defs = await api.listAntecedentDefinitions();
+      } else if (typeof api.fetchAntecedentBlocks === 'function') {
+        defs = await api.fetchAntecedentBlocks({ antecedentType: 'OBSTETRICS' });
       } else if (typeof api.fetchAntecedents === 'function') {
-        data = await api.fetchAntecedents({ dossierId, antecedentType: 'OBSTETRICS ANTECEDANT' });
-      } else {
-        data = FALLBACK_OBSTETRIC_BLOCKS;
+        defs = await api.fetchAntecedents({ antecedentType: 'OBSTETRICS' });
       }
-      const blocks = Array.isArray(data) ? data : [];
-      setAnteBlocks(blocks);
+      const items = Array.isArray(defs) ? defs : [];
+      setBlocks(items);
 
-      // Initialize values structure
+      // Initialize values
       const initial = {};
-      blocks.forEach((b) => {
-        initial[b.code] = {};
-        (b.fields || []).forEach((f) => {
-          initial[b.code][f.code] = '';
+      items.forEach((b) => {
+        initial[b.id] = {};
+        sortByDisplayOrder(b.fields || []).forEach((f) => {
+          initial[b.id][f.code] = toUpperType(f.type) === 'MULTI_ENUM' ? [] : '';
         });
       });
-      setAnteValues(initial);
-    } catch {
-      setAnteBlocks(FALLBACK_OBSTETRIC_BLOCKS);
-      const initial = {};
-      FALLBACK_OBSTETRIC_BLOCKS.forEach((b) => {
-        initial[b.code] = {};
-        (b.fields || []).forEach((f) => {
-          initial[b.code][f.code] = '';
-        });
-      });
-      setAnteValues(initial);
+      setValues(initial);
+    } catch (e) {
+      setBlocks([]);
     } finally {
-      setAnteLoading(false);
+      setLoadingDefs(false);
     }
   };
 
   useEffect(() => {
     if (!open) return;
-    // Reset form state when opening
     setLmpDate('');
     setFormErrors({});
     setCreateError('');
-    setAnteBlocks([]);
-    setAnteValues({});
-    loadObstetricAntecedents();
+    setBlocks([]);
+    setValues({});
+    loadDefinitions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, dossierId]);
+  }, [open, patientID]);
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
     setCreateLoading(true);
     setCreateError('');
+
     try {
+      const antecedentRequest = blocks.map((b) => {
+        const v = values[b.id] || {};
+        const typed = {};
+        sortByDisplayOrder(b.fields || []).forEach((f) => {
+          const raw = v[f.code];
+          const val = castValueByType(raw, f.type);
+          if (val !== undefined && !(Array.isArray(val) && val.length === 0)) {
+            typed[f.code] = val;
+          }
+        });
+        return { antecedentId: b.id, values: typed };
+      });
+
       const payload = {
-        dossierId,
-        lastAmenorrheaDate: lmpDate,
-        antecedents: anteBlocks.map((b) => ({
-          id: b.id,
-          code: b.code,
-          values: (b.fields || []).map((f) => ({
-            fieldId: f.id,
-            code: f.code,
-            value: anteValues[b.code]?.[f.code] ?? null,
-          })),
-        })),
+        patientID: Number(patientID),
+        lastDYSmeNoRRheaDate: lmpDate,
+        antecedentRequest,
       };
 
       let created;
-      if (typeof api.createCpnFiche === 'function') {
-        created = await api.createCpnFiche(payload);
-      } else if (typeof api.createCpn === 'function') {
-        created = await api.createCpn(payload);
+      if (typeof api.submitPatientAntecedents === 'function') {
+        created = await api.submitPatientAntecedents(patientID, payload);
+      } else if (typeof api.createCpnFiche === 'function') {
+        // Dev fallback
+        created = await api.createCpnFiche({
+          dossierId,
+          lastAmenorrheaDate: lmpDate,
+          antecedents: blocks.map((b) => ({
+            id: b.id,
+            code: b.code,
+            values: sortByDisplayOrder(b.fields || []).map((f) => ({
+              fieldId: f.id,
+              code: f.code,
+              value: values[b.id]?.[f.code] ?? null,
+            })),
+          })),
+        });
       } else {
         await new Promise((r) => setTimeout(r, 600));
         created = { id: Date.now(), status: 'NOUVELLE', date: new Date().toISOString() };
       }
 
       onCreated?.(created);
-    } catch {
-      setCreateError("Échec de la création de la fiche. Veuillez réessayer.");
+    } catch (e) {
+      setCreateError("Échec de l'enregistrement. Vérifiez les champs requis et l'API.");
     } finally {
       setCreateLoading(false);
     }
   };
 
+  const renderField = (block, field) => {
+    const bId = block.id;
+    const T = toUpperType(field.type);
+    const fieldKey = `${bId}.${field.code}`;
+    const v = values[bId]?.[field.code];
+    const err = Boolean(formErrors[fieldKey]);
+    const helper = err ? formErrors[fieldKey] : '';
+
+    const c = field.constraints || {};
+    const options = Array.isArray(c.options) ? c.options : [];
+
+    switch (T) {
+      case 'BOOLEAN':
+        return (
+          <FormControlLabel
+            key={field.code || field.id}
+            control={<Switch checked={Boolean(v)} onChange={(e) => setFieldValue(bId, field.code, e.target.checked)} />}
+            label={field.label || field.code}
+          />
+        );
+
+      case 'INTEGER':
+      case 'DECIMAL': {
+        const step = T === 'DECIMAL' ? (c.step ?? 0.1) : 1;
+        return (
+          <TextField
+            key={field.code || field.id}
+            type="number"
+            label={field.label || field.code}
+            value={v ?? ''}
+            onChange={(e) => setFieldValue(bId, field.code, e.target.value === '' ? '' : e.target.value)}
+            required={field.required}
+            error={err}
+            helperText={helper}
+            inputProps={{ step, ...(c.min !== undefined ? { min: c.min } : {}), ...(c.max !== undefined ? { max: c.max } : {}) }}
+            fullWidth
+          />
+        );
+      }
+
+      case 'DATE':
+        return (
+          <TextField
+            key={field.code || field.id}
+            type="date"
+            label={field.label || field.code}
+            value={v ?? ''}
+            onChange={(e) => setFieldValue(bId, field.code, e.target.value)}
+            required={field.required}
+            error={err}
+            helperText={helper}
+            InputLabelProps={{ shrink: true }}
+            inputProps={{ ...(c.min ? { min: c.min } : {}), ...(c.max ? { max: c.max } : {}) }}
+            fullWidth
+          />
+        );
+
+      case 'ENUM':
+        return (
+          <FormControl key={field.code || field.id} fullWidth error={err} required={field.required}>
+            <InputLabel>{field.label || field.code}</InputLabel>
+            <Select label={field.label || field.code} value={v ?? ''} onChange={(e) => setFieldValue(bId, field.code, e.target.value)}>
+              {options.map((opt) => (
+                <MenuItem key={String(opt)} value={String(opt)}>{String(opt)}</MenuItem>
+              ))}
+            </Select>
+            {helper ? <Typography variant="caption" color="error">{helper}</Typography> : null}
+          </FormControl>
+        );
+
+      case 'MULTI_ENUM':
+        return (
+          <FormControl key={field.code || field.id} fullWidth error={err} required={field.required}>
+            <InputLabel>{field.label || field.code}</InputLabel>
+            <Select
+              multiple
+              value={Array.isArray(v) ? v : []}
+              onChange={(e) => setFieldValue(
+                bId,
+                field.code,
+                typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
+              )}
+              input={<OutlinedInput label={field.label || field.code} />}
+              renderValue={(selected) => (
+                <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
+                  {(selected || []).map((val) => <Chip key={val} label={val} size="small" />)}
+                </Stack>
+              )}
+            >
+              {options.map((opt) => (
+                <MenuItem key={String(opt)} value={String(opt)}>{String(opt)}</MenuItem>
+              ))}
+            </Select>
+            {helper ? <Typography variant="caption" color="error">{helper}</Typography> : null}
+          </FormControl>
+        );
+
+      case 'TEXT':
+      default:
+        return (
+          <TextField
+            key={field.code || field.id}
+            label={field.label || field.code}
+            value={v ?? ''}
+            onChange={(e) => setFieldValue(bId, field.code, e.target.value)}
+            required={field.required}
+            error={err}
+            helperText={helper}
+            inputProps={{ ...(c.maxLength ? { maxLength: c.maxLength } : {}) }}
+            fullWidth
+          />
+        );
+    }
+  };
+
   return (
-    <Dialog open={open} onClose={createLoading ? undefined : onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={createLoading ? undefined : onClose} fullWidth maxWidth="md">
       <DialogTitle>Créer une fiche CPN</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
+          {!patient.patientId ? <Alert severity="warning">Patient non défini. Veuillez passer patientID au dialogue. </Alert> : null}
+
+          {patient ? (
+            <Typography variant="body2" color="text.secondary">
+              Patient: {[patient.firstName, patient.lastName].filter(Boolean).join(' ')}
+            </Typography>
+          ) : null}
+
           <TextField
             label="Date de dernière aménorrhée"
             type="date"
@@ -200,21 +389,19 @@ export default function CreateCpnDialog({ open, onClose, dossierId, onCreated })
           <Divider />
 
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Antécédents obstétricaux
+            Antécédents (rubriques)
           </Typography>
 
-          {anteLoading ? (
+          {loadingDefs ? (
             <Stack spacing={1}>
-              <Skeleton height={28} />
-              <Skeleton height={28} />
-              <Skeleton height={28} />
+              <Skeleton height={28} /><Skeleton height={28} /><Skeleton height={28} />
             </Stack>
-          ) : anteBlocks.length === 0 ? (
-            <Alert severity="info">Aucun bloc d’antécédents à afficher.</Alert>
+          ) : blocks.length === 0 ? (
+            <Alert severity="info">Aucune rubrique à afficher.</Alert>
           ) : (
-            anteBlocks.map((block) => (
-              <Paper key={block.code || block.id} variant="outlined" sx={{ p: 2 }}>
-                <Typography sx={{ fontWeight: 600 }}>{block.name || block.code}</Typography>
+            blocks.map((block) => (
+              <Paper key={block.id || block.code} variant="outlined" sx={{ p: 2 }}>
+                <Typography sx={{ fontWeight: 700 }}>{block.name || block.code}</Typography>
                 {block.description ? (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     {block.description}
@@ -222,45 +409,21 @@ export default function CreateCpnDialog({ open, onClose, dossierId, onCreated })
                 ) : null}
 
                 <Stack spacing={1.5}>
-                  {(block.fields || []).map((field) => {
-                    const fieldKey = `${block.code}.${field.code}`;
-                    const value = anteValues[block.code]?.[field.code] ?? '';
-                    const error = Boolean(formErrors[fieldKey]);
-
-                    const typeMap = { number: 'number', text: 'text', date: 'date' };
-                    const inputType = typeMap[field.type] || 'text';
-
-                    return (
-                      <TextField
-                        key={field.code || field.id}
-                        type={inputType}
-                        label={field.label || field.code}
-                        value={value}
-                        onChange={(e) => setFieldValue(block.code, field.code, e.target.value)}
-                        required={field.required}
-                        error={error}
-                        helperText={error ? formErrors[fieldKey] : ''}
-                        InputLabelProps={{ shrink: inputType === 'date' ? true : undefined }}
-                        inputProps={inputType === 'number' ? { min: 0, step: 1 } : undefined}
-                        fullWidth
-                      />
-                    );
-                  })}
+                  {sortByDisplayOrder(block.fields || []).map((field) => renderField(block, field))}
                 </Stack>
               </Paper>
             ))
           )}
+
           {createError ? <Alert severity="error">{createError}</Alert> : null}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={createLoading}>
-          Annuler
-        </Button>
+        <Button onClick={onClose} disabled={createLoading}>Annuler</Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={createLoading}
+          disabled={createLoading || !patientID}
           startIcon={createLoading ? <CircularProgress color="inherit" size={18} /> : null}
         >
           Enregistrer
