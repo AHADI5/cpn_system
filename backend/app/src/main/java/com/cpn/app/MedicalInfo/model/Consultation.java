@@ -6,7 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 @Entity
 @Builder
@@ -24,5 +26,9 @@ public class Consultation {
     @ManyToOne
     @JoinColumn(name = "cpn_id", nullable = false) // explicit join column
     private PrenatalConsultationForm prenatalConsultationForm;
+
+    @OneToMany(mappedBy = "consultation", cascade = CascadeType.ALL)
+    @Builder.Default
+    private List<ResultatExamen> resultatExamens = new ArrayList<>();
 }
 

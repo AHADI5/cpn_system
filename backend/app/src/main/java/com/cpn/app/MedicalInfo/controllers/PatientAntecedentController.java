@@ -6,7 +6,6 @@ import com.cpn.app.MedicalInfo.model.PatientAntecedent;
 import com.cpn.app.MedicalInfo.services.PatientAntecedentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
