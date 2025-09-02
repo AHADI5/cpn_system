@@ -1,34 +1,30 @@
 package com.cpn.app.MedicalInfo.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import lombok.*;
+import java.util.*;
 
 @Entity
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
+@ToString(exclude = {"prenatalConsultationForm", "resultatExamens"})
+@EqualsAndHashCode(exclude = {"prenatalConsultationForm", "resultatExamens"})
 public class Consultation {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Temporal(TemporalType.DATE) // Good practice for java.util.Date
+    @Temporal(TemporalType.DATE)
     private Date date;
 
-    @ManyToOne
-    @JoinColumn(name = "cpn_id", nullable = false) // explicit join column
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "cpn_id", nullable = false)
     private PrenatalConsultationForm prenatalConsultationForm;
 
-    @OneToMany(mappedBy = "consultation", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "consultation", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ResultatExamen> resultatExamens = new ArrayList<>();
 }
-

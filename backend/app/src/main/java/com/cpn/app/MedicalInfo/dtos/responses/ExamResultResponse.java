@@ -6,8 +6,9 @@ public record ExamResultResponse(
     long resultId,
     String champ,
     String valeur,
-    ExamenResponse examen
-    //TODO : consultation response
+    long examenId,
+    String examenName,
+    long consultationId
 
 ) {
     public static ExamResultResponse fromEntity(ResultatExamen entity) {
@@ -15,7 +16,9 @@ public record ExamResultResponse(
             entity.getId(),
             entity.getChamp(),
             entity.getValeur(),
-            ExamenResponse.fromEntity(entity.getExamen())
+            entity.getExamen().getId(),
+            entity.getExamen().getNom(),
+            entity.getConsultation().getId()
         );
     }
 

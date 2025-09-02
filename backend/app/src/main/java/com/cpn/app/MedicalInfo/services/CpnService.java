@@ -14,12 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Date;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -38,58 +33,43 @@ public class CpnService extends BaseCrudServiceImpl<PrenatalConsultationForm, Lo
         return prenatalConsultationFormRepository;
     }
 
-    /**
-     * Sets up a prenatal consultation form:
-     * - Validates request and finds the patient
-     * - Registers antecedents
-     * - Generates consultations from LMP
-     * - Optionally computes EDD (uncomment if the entity has the fields)
-     */
     public PrenatalConsultationForm setUpForm(PrenatalConsultationFormRequest request) {
-        Objects.requireNonNull(request, "request must not be null");
-
-        final Date lmpDate = request.lastDYSmeNoRRheaDate();
-        if (lmpDate == null) {
+        if (request == null || request.lastDYSmeNoRRheaDate() == null) {
             throw new IllegalArgumentException("lastDYSmeNoRRheaDate is required");
         }
 
-        // Find the patient
-        final Patient patient = Optional.ofNullable(patientRepository.findByPatientId(request.patientID()))
+        // Load patient
+        Patient patient = Optional.ofNullable(patientRepository.findByPatientId(request.patientID()))
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found: " + request.patientID()));
 
-        // Register all antecedents for this patient
-        final List<AntecedentRequest> antecedents = request.antecedentRequest();
+        // Upsert antecedents
+        List<AntecedentRequest> antecedents = request.antecedentRequest();
         if (antecedents != null && !antecedents.isEmpty()) {
-            antecedents.forEach(ar -> patientAntecedentService.upsert(request.patientID(), ar));
+            for (AntecedentRequest ar : antecedents) {
+                patientAntecedentService.upsert(request.patientID(), ar);
+            }
         }
 
-        // Generate consultations from LMP
-        final List<Consultation> consultations = new ArrayList<>(
-                Optional.ofNullable(ConsultationPlanner.generateConsultationsFromLMP(lmpDate))
-                        .orElseGet(Collections::emptyList)
-        );
+        Date lmpDate = request.lastDYSmeNoRRheaDate();
 
-        // Compute EDD (LMP + 40 weeks) - use ZonedDateTime to support plusWeeks
-        // Uncomment below if your entity has .estimatedDueDate(...) and .lastAmenorrheaDate(...)
-        // final Date edd = Date.from(
-        //         lmpDate.toInstant()
-        //                 .atZone(ZONE)
-        //                 .plusWeeks(DEFAULT_GESTATIONAL_WEEKS)
-        //                 .toInstant()
-        // );
+        // Generate consultations from LMP (may return null)
+        List<Consultation> consultations = Optional
+                .ofNullable(ConsultationPlanner.generateConsultationsFromLMP(lmpDate))
+                .orElseGet(Collections::emptyList);
 
+        // Compute EDD (LMP + 40 weeks) using date-safe math
+        Date edd = Date.from(lmpDate.toInstant().atZone(ZONE).plusWeeks(DEFAULT_GESTATIONAL_WEEKS).toInstant());
+
+        // Build parent
         PrenatalConsultationForm form = PrenatalConsultationForm.builder()
                 .patient(patient)
-                // If your entity has these fields, set them:
-                // .lastAmenorrheaDate(lmpDate)
-                // .estimatedDueDate(edd)
-                .consultations(consultations)
+                .giveBirthExpectedDate(edd)
                 .build();
 
-        // If Consultation has a ManyToOne back-ref to the form, keep both sides in sync:
-        // consultations.forEach(c -> c.setForm(form));
+        // Important: set back-reference on every consultation
+        form.addConsultations(consultations);
 
-        // Ensure cascade settings on PrenatalConsultationForm.consultations include PERSIST/MERGE
+        // Persist parent; children are cascaded
         return prenatalConsultationFormRepository.save(form);
     }
 }

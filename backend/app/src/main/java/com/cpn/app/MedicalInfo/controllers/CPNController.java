@@ -1,6 +1,7 @@
 package com.cpn.app.MedicalInfo.controllers;
 
 import com.cpn.app.MedicalInfo.dtos.requests.PrenatalConsultationFormRequest;
+import com.cpn.app.MedicalInfo.dtos.responses.PrenatalConsultationFormResponse;
 import com.cpn.app.MedicalInfo.model.PrenatalConsultationForm;
 import com.cpn.app.MedicalInfo.services.CpnService;
 import java.util.List;
@@ -22,15 +23,19 @@ public record CPNController(
     }
 
     @GetMapping()
-    public ResponseEntity<List<PrenatalConsultationForm>> getAllCpn() {
+    public ResponseEntity<List<PrenatalConsultationFormResponse>> getAllCpn() {
         List<PrenatalConsultationForm> forms = cpnService.findAll();
-        return ResponseEntity.ok(forms);
+        List<PrenatalConsultationFormResponse> responses = forms.stream()
+                .map(PrenatalConsultationFormResponse::fromEntity)
+                .toList();
+        return ResponseEntity.ok(responses);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PrenatalConsultationForm> getCpn(@PathVariable long id) {
+    public ResponseEntity<PrenatalConsultationFormResponse> getCpn(@PathVariable long id) {
         PrenatalConsultationForm form = cpnService.findById(id);
-        return ResponseEntity.ok(form);
+        PrenatalConsultationFormResponse response = PrenatalConsultationFormResponse.fromEntity(form);
+        return ResponseEntity.ok(response);
     }
 
 }
