@@ -35,6 +35,13 @@ public class ExamenService  extends  BaseCrudServiceImpl<Examen, Long>{
         return examenRepository.save(examen);
     }
 
+    public void deleteExamen(Long id) {
+        if (!examenRepository.existsById(id)) {
+            throw new EntityNotFoundException("Examen not found");
+        }
+        examenRepository.deleteById(id);
+    }
+
     @Override
     protected JpaRepository<Examen, Long> getRepository() {
         return examenRepository;

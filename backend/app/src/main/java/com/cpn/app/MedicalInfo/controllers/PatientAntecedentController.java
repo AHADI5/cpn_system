@@ -24,7 +24,7 @@ public class PatientAntecedentController {
             @PathVariable Long patientId,
             @RequestBody AntecedentRequest request
     ) {
-        PatientAntecedent saved = patientAntecedentService.upsert(patientId, request, null );
+        PatientAntecedent saved = patientAntecedentService.upsert(patientId, request );
         return ResponseEntity.ok(PatientAntecedentResponse.fromEntity(saved));
     }
 

@@ -32,7 +32,7 @@ public class PatientAntecedentService extends BaseCrudServiceImpl<PatientAnteced
     }
 
     @Transactional
-    public PatientAntecedent upsert(Long patientId, AntecedentRequest request, String recordedBy) {
+    public PatientAntecedent upsert(Long patientId, AntecedentRequest request) {
         Patient patient = patientRepository.findById(Math.toIntExact(patientId))
                 .orElseThrow(() -> new IllegalArgumentException("Patient not found: " + patientId));
 
@@ -54,7 +54,7 @@ public class PatientAntecedentService extends BaseCrudServiceImpl<PatientAnteced
 
         pa.setValues(values);
         pa.setRecordedAt(OffsetDateTime.now());
-        pa.setRecordedBy(recordedBy);
+        pa.setRecordedBy("system");  
 
         return patientAntecedentRepository.save(pa);
     }

@@ -1,0 +1,70 @@
+@startuml
+title Création du dossier médical de la patiente (Réceptionniste)
+
+actor Receptionniste
+
+boundary "<<boundary>> \n PatientForm" as Boundary
+control "<<control>> \n DossierController" as Control
+entity "<<entity>> \n  Patient" as PatientEntity
+entity "<<entity>> \n  Dossier" as DossierEntity
+database " <<database>> \n DataBase" as DB
+
+Receptionniste -> Boundary: Saisir identité + Submit
+Boundary -> Control: Demander création dossier
+
+Control -> PatientEntity: Créer Patient
+PatientEntity -> DB: Enregistrer Patient
+DB --> PatientEntity: Patient enregistré
+PatientEntity --> Control: Patient créé avec succès
+
+Control -> DossierEntity: Créer Dossier associé
+DossierEntity -> DB: Enregistrer Dossier
+DB --> DossierEntity: Dossier enregistré
+DossierEntity --> Control: Dossier créé avec succès
+
+Control --> Boundary: Résultat (succès)
+Boundary --> Receptionniste: Dossier créé avec succès
+@enduml
+
+
+@startuml
+title Création et génération de la fiche CPN (Docteur)
+
+actor Docteur
+
+boundary "<<boundary>> \n FicheCPNForm" as Boundary
+control "<<control>> \n FicheCPNController" as Control
+entity "<<entity>> \n Dossier" as DossierEntity
+entity "<<entity>> \n FicheCPN" as FicheEntity
+entity "<<entity>> \n Consultation" as ConsultationEntity
+database "<<database>> \n DataBase" as DB
+
+Docteur -> Boundary: Créer nouvelle fiche CPN
+Boundary -> Control: Demander création fiche CPN
+
+Control -> DossierEntity: Récupérer identité patiente
+DossierEntity -> DB: Lire identité patiente
+DB --> DossierEntity: Données identité
+DossierEntity --> Control: Identité patiente
+Control --> Boundary: Identité auto-remplie
+
+Docteur -> Boundary: Saisir antécédents + Date de dernière règle
+Docteur -> Boundary: Submit
+
+Boundary -> Control: Enregistrer infos médicales
+Control -> FicheEntity: Sauvegarder fiche CPN
+FicheEntity -> DB: Enregistrer fiche CPN
+DB --> FicheEntity: Fiche enregistrée
+FicheEntity --> Control: Succès
+
+' Automatic generation triggered after saving the fiche
+Control -> Control: Génération automatique des consultations
+
+Control -> ConsultationEntity: Créer consultations (planning)
+ConsultationEntity -> DB: Enregistrer consultations
+DB --> ConsultationEntity: Consultations enregistrées
+ConsultationEntity --> Control: Succès
+
+Control --> Boundary: Résultat (fiche et planning créés)
+Boundary --> Docteur: Fiche CPN créée avec succès
+@enduml

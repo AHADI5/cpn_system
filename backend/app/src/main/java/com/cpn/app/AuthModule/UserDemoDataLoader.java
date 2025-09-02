@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import javax.management.relation.Role;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,6 +38,7 @@ public record UserDemoDataLoader(
             List<User> rawUsers = Arrays.asList(objectMapper.readValue(stream, User[].class));
             for (User user : rawUsers) {
                 user.setPassword(passwordEncoder.encode(user.getPassword()));
+                user.setEnabled(true);
             }
             log.info("Loaded {} users", rawUsers);
 
