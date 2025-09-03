@@ -39,7 +39,8 @@ function castValueByType(val, type) {
   const T = toUpperType(type);
   if (val === '' || val === undefined || val === null) return undefined;
   switch (T) {
-    case 'BOOLEAN': return Boolean(val);
+    case 'BOOLEAN':
+      return Boolean(val);
     case 'INTEGER': {
       const n = Number(val);
       return Number.isFinite(n) ? Math.trunc(n) : undefined;
@@ -48,11 +49,15 @@ function castValueByType(val, type) {
       const n = Number(val);
       return Number.isFinite(n) ? n : undefined;
     }
-    case 'DATE': return String(val); // yyyy-mm-dd
-    case 'ENUM': return String(val);
-    case 'MULTI_ENUM': return Array.isArray(val) ? val : [val].filter(Boolean);
+    case 'DATE':
+      return String(val); // yyyy-mm-dd
+    case 'ENUM':
+      return String(val);
+    case 'MULTI_ENUM':
+      return Array.isArray(val) ? val : [val].filter(Boolean);
     case 'TEXT':
-    default: return String(val);
+    default:
+      return String(val);
   }
 }
 function isMissingRequired(val, type) {
@@ -73,9 +78,9 @@ function sortByDisplayOrder(fields = []) {
 export default function CreateCpnDialog({
   open,
   onClose,
-  dossierId,   // optional (legacy)
-  patientID,   // REQUIRED for real endpoint
-  patient,     // optional: for display
+  dossierId, // optional (legacy)
+  patientID, // REQUIRED for real endpoint
+  patient, // optional: for display
   onCreated,
 }) {
   const [lmpDate, setLmpDate] = useState(''); // yyyy-mm-dd
@@ -113,7 +118,11 @@ export default function CreateCpnDialog({
             errors[`${b.id}.${f.code}`] = 'Champ requis';
           }
         }
-        if ((f.type === 'INTEGER' || f.type === 'DECIMAL') && fieldVals[f.code] !== undefined && fieldVals[f.code] !== '') {
+        if (
+          (f.type === 'INTEGER' || f.type === 'DECIMAL') &&
+          fieldVals[f.code] !== undefined &&
+          fieldVals[f.code] !== ''
+        ) {
           const n = Number(fieldVals[f.code]);
           if (Number.isFinite(n)) {
             const { min, max } = f.constraints || {};
@@ -167,7 +176,7 @@ export default function CreateCpnDialog({
         });
       });
       setValues(initial);
-    } catch (e) {
+    } catch {
       setBlocks([]);
     } finally {
       setLoadingDefs(false);
@@ -206,34 +215,14 @@ export default function CreateCpnDialog({
 
       const payload = {
         patientID: Number(patientID),
-        lastDYSmeNoRRheaDate: lmpDate,
+        lastDYSmeNoRRheaDate: lmpDate, // yyyy-mm-dd
         antecedentRequest,
       };
 
-      let created;
-      if (typeof api.submitPatientAntecedents === 'function') {
-        created = await api.submitPatientAntecedents(patientID, payload);
-      } else if (typeof api.createCpnFiche === 'function') {
-        // Dev fallback
-        created = await api.createCpnFiche({
-          dossierId,
-          lastAmenorrheaDate: lmpDate,
-          antecedents: blocks.map((b) => ({
-            id: b.id,
-            code: b.code,
-            values: sortByDisplayOrder(b.fields || []).map((f) => ({
-              fieldId: f.id,
-              code: f.code,
-              value: values[b.id]?.[f.code] ?? null,
-            })),
-          })),
-        });
-      } else {
-        await new Promise((r) => setTimeout(r, 600));
-        created = { id: Date.now(), status: 'NOUVELLE', date: new Date().toISOString() };
-      }
+      // This POSTs (getting text id) then immediately GETs the full CPN
+      const created = await api.submitPatientAntecedents(patientID, payload);
 
-      onCreated?.(created);
+      onCreated?.(created); // Full PrenatalConsultationFormResponse
     } catch (e) {
       setCreateError("Échec de l'enregistrement. Vérifiez les champs requis et l'API.");
     } finally {
@@ -257,25 +246,36 @@ export default function CreateCpnDialog({
         return (
           <FormControlLabel
             key={field.code || field.id}
-            control={<Switch checked={Boolean(v)} onChange={(e) => setFieldValue(bId, field.code, e.target.checked)} />}
+            control={
+              <Switch
+                checked={Boolean(v)}
+                onChange={(e) => setFieldValue(bId, field.code, e.target.checked)}
+              />
+            }
             label={field.label || field.code}
           />
         );
 
       case 'INTEGER':
       case 'DECIMAL': {
-        const step = T === 'DECIMAL' ? (c.step ?? 0.1) : 1;
+        const step = T === 'DECIMAL' ? c.step ?? 0.1 : 1;
         return (
           <TextField
             key={field.code || field.id}
             type="number"
             label={field.label || field.code}
             value={v ?? ''}
-            onChange={(e) => setFieldValue(bId, field.code, e.target.value === '' ? '' : e.target.value)}
+            onChange={(e) =>
+              setFieldValue(bId, field.code, e.target.value === '' ? '' : e.target.value)
+            }
             required={field.required}
             error={err}
             helperText={helper}
-            inputProps={{ step, ...(c.min !== undefined ? { min: c.min } : {}), ...(c.max !== undefined ? { max: c.max } : {}) }}
+            inputProps={{
+              step,
+              ...(c.min !== undefined ? { min: c.min } : {}),
+              ...(c.max !== undefined ? { max: c.max } : {}),
+            }}
             fullWidth
           />
         );
@@ -302,12 +302,22 @@ export default function CreateCpnDialog({
         return (
           <FormControl key={field.code || field.id} fullWidth error={err} required={field.required}>
             <InputLabel>{field.label || field.code}</InputLabel>
-            <Select label={field.label || field.code} value={v ?? ''} onChange={(e) => setFieldValue(bId, field.code, e.target.value)}>
+            <Select
+              label={field.label || field.code}
+              value={v ?? ''}
+              onChange={(e) => setFieldValue(bId, field.code, e.target.value)}
+            >
               {options.map((opt) => (
-                <MenuItem key={String(opt)} value={String(opt)}>{String(opt)}</MenuItem>
+                <MenuItem key={String(opt)} value={String(opt)}>
+                  {String(opt)}
+                </MenuItem>
               ))}
             </Select>
-            {helper ? <Typography variant="caption" color="error">{helper}</Typography> : null}
+            {helper ? (
+              <Typography variant="caption" color="error">
+                {helper}
+              </Typography>
+            ) : null}
           </FormControl>
         );
 
@@ -318,23 +328,35 @@ export default function CreateCpnDialog({
             <Select
               multiple
               value={Array.isArray(v) ? v : []}
-              onChange={(e) => setFieldValue(
-                bId,
-                field.code,
-                typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
-              )}
+              onChange={(e) =>
+                setFieldValue(
+                  bId,
+                  field.code,
+                  typeof e.target.value === 'string'
+                    ? e.target.value.split(',')
+                    : e.target.value
+                )
+              }
               input={<OutlinedInput label={field.label || field.code} />}
               renderValue={(selected) => (
                 <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
-                  {(selected || []).map((val) => <Chip key={val} label={val} size="small" />)}
+                  {(selected || []).map((val) => (
+                    <Chip key={val} label={val} size="small" />
+                  ))}
                 </Stack>
               )}
             >
               {options.map((opt) => (
-                <MenuItem key={String(opt)} value={String(opt)}>{String(opt)}</MenuItem>
+                <MenuItem key={String(opt)} value={String(opt)}>
+                  {String(opt)}
+                </MenuItem>
               ))}
             </Select>
-            {helper ? <Typography variant="caption" color="error">{helper}</Typography> : null}
+            {helper ? (
+              <Typography variant="caption" color="error">
+                {helper}
+              </Typography>
+            ) : null}
           </FormControl>
         );
 
@@ -361,7 +383,9 @@ export default function CreateCpnDialog({
       <DialogTitle>Créer une fiche CPN</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
-          {!patient.patientId ? <Alert severity="warning">Patient non défini. Veuillez passer patientID au dialogue. </Alert> : null}
+          {!patient?.patientId ? (
+            <Alert severity="warning">Patient non défini. Veuillez passer patientID au dialogue.</Alert>
+          ) : null}
 
           {patient ? (
             <Typography variant="body2" color="text.secondary">
@@ -394,14 +418,18 @@ export default function CreateCpnDialog({
 
           {loadingDefs ? (
             <Stack spacing={1}>
-              <Skeleton height={28} /><Skeleton height={28} /><Skeleton height={28} />
+              <Skeleton height={28} />
+              <Skeleton height={28} />
+              <Skeleton height={28} />
             </Stack>
           ) : blocks.length === 0 ? (
             <Alert severity="info">Aucune rubrique à afficher.</Alert>
           ) : (
             blocks.map((block) => (
               <Paper key={block.id || block.code} variant="outlined" sx={{ p: 2 }}>
-                <Typography sx={{ fontWeight: 700 }}>{block.name || block.code}</Typography>
+                <Typography sx={{ fontWeight: 700 }}>
+                  {block.name || block.code}
+                </Typography>
                 {block.description ? (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     {block.description}
@@ -409,7 +437,9 @@ export default function CreateCpnDialog({
                 ) : null}
 
                 <Stack spacing={1.5}>
-                  {sortByDisplayOrder(block.fields || []).map((field) => renderField(block, field))}
+                  {sortByDisplayOrder(block.fields || []).map((field) =>
+                    renderField(block, field)
+                  )}
                 </Stack>
               </Paper>
             ))
@@ -419,7 +449,9 @@ export default function CreateCpnDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={createLoading}>Annuler</Button>
+        <Button onClick={onClose} disabled={createLoading}>
+          Annuler
+        </Button>
         <Button
           variant="contained"
           onClick={handleSubmit}

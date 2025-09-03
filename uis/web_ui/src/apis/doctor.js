@@ -4,17 +4,22 @@
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Config runtime
-let BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) || 'http://127.0.0.1:8080/api/v1';
+let BASE_URL =
+  (typeof import.meta !== 'undefined' &&
+    import.meta.env &&
+    import.meta.env.VITE_API_BASE_URL) ||
+  'http://127.0.0.1:8080/api/v1';
+
 const AUTH = {
   token: null,
-  tokenProvider: null,   // fonction optionnelle pour fournir le token dynamiquement
-  onUnauthorized: null,  // callback optionnel sur 401
+  tokenProvider: null, // fonction optionnelle pour fournir le token dynamiquement
+  onUnauthorized: null, // callback optionnel sur 401
 };
 
 // In-memory stores (dev fallback)
 const memory = {
-  cpnByDossier: {},          // { [dossierId]: Array<fiche> }
-  antecedentDefs: [],        // list of antecedent definitions
+  cpnByDossier: {}, // { [dossierId]: Array<fiche> }
+  antecedentDefs: [], // list of antecedent definitions
   _idSeq: 1,
 };
 
@@ -42,7 +47,11 @@ function getAuthToken() {
   // Priorité: variable en mémoire -> provider -> storage
   let t = AUTH.token;
   if (!t && typeof AUTH.tokenProvider === 'function') {
-    try { t = AUTH.tokenProvider(); } catch { /* no-op */ }
+    try {
+      t = AUTH.tokenProvider();
+    } catch {
+      /* no-op */
+    }
   }
   if (!t) {
     t =
@@ -57,8 +66,10 @@ function getAuthToken() {
 }
 
 async function http(method, path, body, extraHeaders = {}) {
-  const token = getAuthToken ? getAuthToken() : null; // if you added token helpers earlier
-  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  const token = getAuthToken ? getAuthToken() : null;
+  const isFormData =
+    typeof FormData !== 'undefined' && body instanceof FormData;
+
   const headers = {
     Accept: 'application/json',
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -76,11 +87,19 @@ async function http(method, path, body, extraHeaders = {}) {
   });
 
   if (!res.ok) {
+    if (res.status === 401 && typeof AUTH.onUnauthorized === 'function') {
+      try {
+        AUTH.onUnauthorized();
+      } catch {
+        /* no-op */
+      }
+    }
     const text = await res.text().catch(() => '');
     const err = new Error(`HTTP ${res.status}: ${text || res.statusText}`);
     err.status = res.status;
     throw err;
   }
+
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) return null;
   return res.json();
@@ -89,7 +108,8 @@ async function http(method, path, body, extraHeaders = {}) {
 /* ------------------ Fake endpoints pour dossier / consultations / fiches ------------------ */
 function hashCode(str = '') {
   let h = 0;
-  for (let i = 0; i < str.length; i += 1) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  for (let i = 0; i < str.length; i += 1)
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
   return Math.abs(h);
 }
 function mulberry32(seed) {
@@ -102,8 +122,26 @@ function mulberry32(seed) {
   };
 }
 function namesBySeed(seed) {
-  const firstNames = ['Aïcha', 'Leïla', 'Fatou', 'Nadia', 'Amal', 'Sara', 'Mina', 'Yara'];
-  const lastNames = ['Ndiaye', 'Mahmoud', 'Diallo', 'Benali', 'Khalil', 'Rami', 'Haddad', 'Benslimane'];
+  const firstNames = [
+    'Aïcha',
+    'Leïla',
+    'Fatou',
+    'Nadia',
+    'Amal',
+    'Sara',
+    'Mina',
+    'Yara',
+  ];
+  const lastNames = [
+    'Ndiaye',
+    'Mahmoud',
+    'Diallo',
+    'Benali',
+    'Khalil',
+    'Rami',
+    'Haddad',
+    'Benslimane',
+  ];
   const rnd = mulberry32(seed);
   return {
     first: firstNames[Math.floor(rnd() * firstNames.length)],
@@ -147,13 +185,25 @@ async function fetchConsultations({ dossierId }) {
     const offset = -7 * (i + 1);
     const time = ['08:30:00', '10:00:00', '14:00:00'][i % 3];
     const status = ['Terminée', 'Terminée', 'Annulée'][i % 3];
-    return { id: `c-${dossierId}-p-${i + 1}`, title: `Consultation ${i + 1}`, type: types[Math.floor(rnd() * types.length)], status, date: dateShift(offset, time) };
+    return {
+      id: `c-${dossierId}-p-${i + 1}`,
+      title: `Consultation ${i + 1}`,
+      type: types[Math.floor(rnd() * types.length)],
+      status,
+      date: dateShift(offset, time),
+    };
   });
 
   const future = Array.from({ length: futureCount }).map((_, i) => {
     const offset = 7 * (i + 1);
     const time = ['08:30:00', '10:00:00', '14:00:00'][i % 3];
-    return { id: `c-${dossierId}-f-${i + 1}`, title: `Consultation planifiée ${i + 1}`, type: types[Math.floor(rnd() * types.length)], status: 'Planifiée', date: dateShift(offset, time) };
+    return {
+      id: `c-${dossierId}-f-${i + 1}`,
+      title: `Consultation planifiée ${i + 1}`,
+      type: types[Math.floor(rnd() * types.length)],
+      status: 'Planifiée',
+      date: dateShift(offset, time),
+    };
   });
 
   const items = [...past, ...future];
@@ -170,11 +220,18 @@ async function fetchCpnFiches({ dossierId }) {
   const base = Array.from({ length: count }).map((_, i) => {
     const code = `FCPN-${String(dossierId).padStart(4, '0')}-${i + 1}`;
     const dayOffset = -i * 14;
-    return { id: `f-${dossierId}-g-${i + 1}`, code, date: dateShift(dayOffset, '09:15:00').slice(0, 10), status: statuses[Math.floor(rnd() * statuses.length)] };
+    return {
+      id: `f-${dossierId}-g-${i + 1}`,
+      code,
+      date: dateShift(dayOffset, '09:15:00').slice(0, 10),
+      status: statuses[Math.floor(rnd() * statuses.length)],
+    };
   });
 
   const created = memory.cpnByDossier[dossierId] || [];
-  return [...base, ...created].sort((a, b) => new Date(b.date) - new Date(a.date));
+  return [...base, ...created].sort(
+    (a, b) => new Date(b.date) - new Date(a.date)
+  );
 }
 
 async function fetchAntecedentBlocks({ dossierId, antecedentType }) {
@@ -187,23 +244,81 @@ async function fetchAntecedentBlocks({ dossierId, antecedentType }) {
       description: 'OBSTETRICS ANTECEDANT ',
       antecedentType: antecedentType || 'OBSTETRICS',
       active: true,
-      fields: [{ id: 1, code: 'Enfant-nouveau-né', label: 'Nombre', type: 'INTEGER', required: true, displayOrder: 1, constraints: { min: 0 }, ui: {} }],
+      fields: [
+        {
+          id: 1,
+          code: 'Enfant-nouveau-né',
+          label: 'Nombre',
+          type: 'INTEGER',
+          required: true,
+          displayOrder: 1,
+          constraints: { min: 0 },
+          ui: {},
+        },
+      ],
     },
   ];
 }
 const fetchAntecedents = fetchAntecedentBlocks;
 
-async function createCpnFiche(payload) {
-  await delay(300);
-  const { dossierId } = payload || {};
-  if (!dossierId) throw new Error('dossierId is required');
-  const existing = await fetchCpnFiches({ dossierId });
-  const nextNum = existing.length + 1;
-  const code = `FCPN-${String(dossierId).padStart(4, '0')}-${nextNum}`;
-  const created = { id: `f-${dossierId}-m-${Date.now()}`, code, date: todayDateStr(), status: 'Brouillon', ...payload };
-  if (!memory.cpnByDossier[dossierId]) memory.cpnByDossier[dossierId] = [];
-  memory.cpnByDossier[dossierId].push(created);
-  return created;
+/* ------------------ Real CPN endpoints (POST then GET) ------------------ */
+
+async function fetchCpnById(id) {
+  return await http('GET', `/cpn/${encodeURIComponent(id)}`);
+}
+
+async function postCpn(payload) {
+  const token = getAuthToken ? getAuthToken() : null;
+  const res = await fetch(`${BASE_URL}/cpn`, {
+    method: 'POST',
+    headers: {
+      Accept: 'text/plain, application/json;q=0.9, */*;q=0.8',
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+    mode: 'cors',
+  });
+
+  const raw = await res.text().catch(() => '');
+  if (!res.ok) {
+    if (res.status === 401 && typeof AUTH.onUnauthorized === 'function') {
+      try {
+        AUTH.onUnauthorized();
+      } catch {
+        /* no-op */
+      }
+    }
+    const err = new Error(`HTTP ${res.status}: ${raw || res.statusText}`);
+    err.status = res.status;
+    throw err;
+  }
+
+  // Backend returns plain text ID (e.g. "123")
+  let id = Number((raw || '').trim());
+  if (!Number.isFinite(id)) {
+    // fallback if the backend returns JSON in the future
+    try {
+      const maybeJson = JSON.parse(raw);
+      id = Number(maybeJson?.id ?? maybeJson);
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!Number.isFinite(id)) {
+    throw new Error(
+      'Unable to parse created CPN id from response payload (expected plain id)'
+    );
+  }
+  return id;
+}
+
+async function createCpn(payload) {
+  // 1) POST -> get id (text)
+  const id = await postCpn(payload);
+  // 2) GET -> fetch full CPN with consultations
+  const cpn = await fetchCpnById(id);
+  return cpn; // PrenatalConsultationFormResponse
 }
 
 /* ------------------ CRUD des définitions d’antécédents (API réelle + fallback) ------------------ */
@@ -243,9 +358,14 @@ async function updateAntecedentDefinition(idOrCode, def) {
   } catch (e) {
     // Fallback mémoire
     await delay(100);
-    const idx = memory.antecedentDefs.findIndex((d) => (d.id === idOrCode || d.code === idOrCode));
+    const idx = memory.antecedentDefs.findIndex(
+      (d) => d.id === idOrCode || d.code === idOrCode
+    );
     if (idx < 0) throw new Error('Not found (memory fallback)');
-    memory.antecedentDefs[idx] = { ...(memory.antecedentDefs[idx] || {}), ...def };
+    memory.antecedentDefs[idx] = {
+      ...(memory.antecedentDefs[idx] || {}),
+      ...def,
+    };
     return memory.antecedentDefs[idx];
   }
 }
@@ -259,19 +379,40 @@ async function deleteAntecedentDefinition(idOrCode) {
     // Fallback mémoire
     await delay(100);
     const before = memory.antecedentDefs.length;
-    memory.antecedentDefs = memory.antecedentDefs.filter((d) => d.id !== idOrCode && d.code !== idOrCode);
+    memory.antecedentDefs = memory.antecedentDefs.filter(
+      (d) => d.id !== idOrCode && d.code !== idOrCode
+    );
     return memory.antecedentDefs.length < before;
   }
 }
 
-async function submitPatientAntecedents(patientId, request) {
-  const absUrl = `http://127.0.0.1:8080/api/patients/${encodeURIComponent(patientId)}/antecedents`;
-  console.log(patientId) 
-  console.log("the request is" , request)
-  return http('PUT', absUrl, request);
+// Backward-compat alias used by CreateCpnDialog
+async function submitPatientAntecedents(_patientId, request) {
+  // POST then immediate GET full CPN
+  const created = await createCpn(request);
+  return created;
 }
 
+/* ------------------ Dev fallback for "fiches" (not CPN API) ------------------ */
 
+async function createCpnFiche(payload) {
+  await delay(300);
+  const { dossierId } = payload || {};
+  if (!dossierId) throw new Error('dossierId is required');
+  const existing = await fetchCpnFiches({ dossierId });
+  const nextNum = existing.length + 1;
+  const code = `FCPN-${String(dossierId).padStart(4, '0')}-${nextNum}`;
+  const created = {
+    id: `f-${dossierId}-m-${Date.now()}`,
+    code,
+    date: todayDateStr(),
+    status: 'Brouillon',
+    ...payload,
+  };
+  if (!memory.cpnByDossier[dossierId]) memory.cpnByDossier[dossierId] = [];
+  memory.cpnByDossier[dossierId].push(created);
+  return created;
+}
 
 export const api = {
   // Existing
@@ -286,5 +427,8 @@ export const api = {
   createAntecedentDefinition,
   updateAntecedentDefinition,
   deleteAntecedentDefinition,
-  submitPatientAntecedents
+  // CPN endpoints
+  fetchCpnById,
+  createCpn,
+  submitPatientAntecedents, // alias for CreateCpnDialog usage
 };
